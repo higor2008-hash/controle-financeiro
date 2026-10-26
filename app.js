@@ -1096,7 +1096,7 @@ function renderUa(){
       <td class="num" style="white-space:nowrap">${u.numero?esc(u.numero)+(u.numero2?'<span class="sub2" style="display:block">'+esc(u.numero2)+'</span>':''):'<span class="sub2">sem número</span>'}</td>
       <td>${d?fmtD(d):'<span class="sub2">sem dia</span>'}${st}</td>
       <td class="n"><input class="ucval" type="number" min="0" step="0.01" inputmode="decimal" placeholder="R$" aria-label="Valor de ${esc(u.local)}" data-ucval="${esc(u.id)}" value="${r&&r.valor!=null?esc(String(r.valor)):''}" style="width:7.5em;text-align:right"></td>
-      <td style="width:1%"><span class="acts">${pago?'<button class="btn ghost small" type="button" data-paybtn>Desfazer</button>':'<button class="btn small" type="button" data-paybtn>Pagar</button>'}${u.tipo==='energia'&&u.numero?`<a class="btn ghost small" href="https://goias.equatorialenergia.com.br/" target="_blank" rel="noopener noreferrer" data-uccopy="${esc(u.numero)}" title="Abre a Equatorial Goiás e copia o número da unidade">Equatorial</a>`:'<span class="btn ghost small ph" aria-hidden="true">Equatorial</span>'}<button class="btn ghost small" data-ed="ucs" data-id="${esc(u.id)}">Editar</button><button class="btn danger small" data-del="ucs" data-id="${esc(u.id)}">Excluir</button></span></td></tr>`;}).join('')}</tbody><tfoot><tr><td>Total</td><td></td><td></td><td class="n">${R(tot)}</td><td></td></tr></tfoot>`
+      <td style="width:1%"><span class="acts">${pago?'<button class="btn ghost small" type="button" data-paybtn>Desfazer</button>':'<button class="btn small" type="button" data-paybtn>Pagar</button>'}${u.tipo==='energia'?`<a class="btn ghost small" href="https://goias.equatorialenergia.com.br/" target="_blank" rel="noopener noreferrer" data-uccopy="${esc(u.numero||'')}" data-emp="Equatorial" title="Abre a Equatorial Goiás e copia o número da unidade">Equatorial</a>`:`<a class="btn ghost small" href="https://www.saneago.com.br/" target="_blank" rel="noopener noreferrer" data-uccopy="${esc(u.numero||'')}" data-emp="Saneago" title="Abre a Saneago e copia o número da conta">Saneago</a>`}<button class="btn ghost small" data-ed="ucs" data-id="${esc(u.id)}">Editar</button><button class="btn danger small" data-del="ucs" data-id="${esc(u.id)}">Excluir</button></span></td></tr>`;}).join('')}</tbody><tfoot><tr><td>Total</td><td></td><td></td><td class="n">${R(tot)}</td><td></td></tr></tfoot>`
     :`<tr><td class="empty">Nenhuma unidade cadastrada${uaTipo?' deste tipo':''}.</td></tr>`;
 }
 async function uaSalvaMes(uc,patch){
@@ -1125,10 +1125,12 @@ $('#fUc').addEventListener('submit',async e=>{e.preventDefault(); const m=$('#mU
   catch(err){flash(m,errTxt(err));}
 });
 
-/* Ver na Equatorial: abre o site oficial e copia o número da unidade (o site pede login, então o valor não vem sozinho). */
+/* Botões Equatorial e Saneago: abrem o site oficial e copiam o número da conta (o site pede login, então o valor não vem sozinho). */
 document.addEventListener('click',e=>{const a=e.target.closest('[data-uccopy]'); if(!a) return;
-  try{navigator.clipboard&&navigator.clipboard.writeText(a.dataset.uccopy).catch(()=>{});}catch(err){}
-  flash($('#mUaVal'),`Unidade ${a.dataset.uccopy} copiada. Na Equatorial, entre com seu CPF e cole o número para ver a conta.`,true);
+  const n=a.dataset.uccopy, emp=a.dataset.emp||'Equatorial';
+  if(!n){flash($('#mUaVal'),`Essa conta está sem número. Abri a ${emp}; cadastre o número em Editar.`,true);return;}
+  try{navigator.clipboard&&navigator.clipboard.writeText(n).catch(()=>{});}catch(err){}
+  flash($('#mUaVal'),`Número ${n} copiado. Na ${emp}, entre com seu CPF e cole o número para ver a conta.`,true);
 });
 /* Botão Pagar/Desfazer: marca o mesmo quadradinho da linha (contas, faturas e veículos). */
 document.addEventListener('click',e=>{const b=e.target.closest('[data-paybtn]'); if(!b) return;
