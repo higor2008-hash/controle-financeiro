@@ -3,5 +3,5 @@
 window.CF_CONFIG = {
   supabaseUrl: "https://vdczzukvsqkwxuuqnspw.supabase.co",
   supabaseAnonKey: "sb_publishable_xG3HbvHJz5pxM0un0dKq8Q_LGkIrpkq",
-  versao: "27"
+  versao: "28"
 };

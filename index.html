@@ -250,6 +250,7 @@ nav.tabs .ts{display:none}
   .tbl.stack td[data-label]::before{content:attr(data-label);color:var(--ink-3);font-size:11px;text-transform:uppercase;letter-spacing:.04em;font-weight:400;font-family:var(--f-body)}
   .tbl.stack td:first-child{grid-column:1/-1;flex-direction:row;flex-wrap:wrap;align-items:center;gap:6px;font-size:15px;padding-bottom:6px;border-bottom:1px solid var(--line);margin-bottom:4px}
   .tbl.stack td:has(> .btn:only-child),.tbl.stack td:has(> .acts){grid-column:1/-1;flex-direction:row;justify-content:flex-end}
+  #tblUa .acts{flex-wrap:wrap;justify-content:flex-end}
   #tblPos td:nth-child(6),#tblPos td:nth-child(9),#tblPos td:nth-child(12){display:none}
   #tblContas tbody tr{grid-template-columns:auto minmax(0,1fr) auto;align-items:center}
   #tblContas td{border:0!important;margin:0!important;padding:4px 0!important}
@@ -289,6 +290,8 @@ nav.tabs .ts{display:none}
   .fatnav{width:100%;justify-content:space-between}
 }
 
+@media (min-width:641px){#tblUa td:last-child{width:240px!important;min-width:240px}#tblUa td:first-child{max-width:320px}}
+#tblUa .acts{flex-wrap:wrap;justify-content:flex-end}
 </style>
 <style>
 html,body{margin:0;background:var(--bg)}
