@@ -1035,7 +1035,7 @@ function renderVeic(){
     :`<tbody><tr><td class="empty">Nenhum pagamento lançado em ${vcAno}.</td></tr></tbody>`;
   const anos=[...new Set(LS.map(l=>+l.ano))].sort(); const rows=anos.map(a=>({a,v:LS.filter(l=>+l.ano===a).reduce((t,l)=>t+(+l.valor||0),0)})); const mx=Math.max(...rows.map(r=>r.v),1);
   $('#vcBars').innerHTML=rows.length?rows.map(r=>`<div class="bar" style="grid-template-columns:minmax(0,60px) minmax(0,1fr) auto;cursor:pointer" data-vcano="${r.a}" title="Abrir ${r.a}"><span>${r.a}</span><div class="track"><div class="fill" style="width:${(r.v/mx*100).toFixed(1)}%"></div></div><span class="num" style="text-align:right;white-space:nowrap">${R(r.v)}</span></div>`).join(''):'<p class="empty">Nenhum pagamento lançado.</p>';
-  $('#tblVeic').innerHTML=VS.length?`<thead><tr><th>Veículo</th><th>Placa</th><th>RENAVAM</th><th></th></tr></thead><tbody>${VS.map(v=>`<tr><td><b>${esc(v.nome)}</b>${v.obs?' <span class="sub2">'+esc(v.obs)+'</span>':''}</td><td>${esc(v.placa)}</td><td>${esc(v.renavam||'—')}</td><td style="width:1%"><span class="acts"><button class="btn ghost small" data-ed="veiculos" data-id="${esc(v.id)}">Editar</button><button class="btn danger small" data-del="veiculos" data-id="${esc(v.id)}">Excluir</button></span></td></tr>`).join('')}</tbody>`
+  $('#tblVeic').innerHTML=VS.length?`<thead><tr><th>Veículo</th><th>Placa</th><th>RENAVAM</th><th></th></tr></thead><tbody>${VS.map(v=>`<tr><td><b>${esc(v.nome)}</b>${v.obs?' <span class="sub2">'+esc(v.obs)+'</span>':''}</td><td>${esc(v.placa)}</td><td>${esc(v.renavam||'—')}</td><td style="width:1%"><span class="acts"><a class="btn ghost small" href="https://www.detran.go.gov.br/" target="_blank" rel="noopener noreferrer" data-detran="${esc(v.placa)}|${esc(v.renavam||'')}" title="Abre o site do Detran-GO e copia placa e RENAVAM">Consultar no Detran</a><button class="btn ghost small" data-ed="veiculos" data-id="${esc(v.id)}">Editar</button><button class="btn danger small" data-del="veiculos" data-id="${esc(v.id)}">Excluir</button></span></td></tr>`).join('')}</tbody>`
     :`<tbody><tr><td class="empty">Nenhum veículo cadastrado.</td></tr></tbody>`;
   const sel=$('#lcVeic'), cur=sel.value; sel.innerHTML=VS.map(v=>`<option value="${esc(v.placa)}">${esc(v.nome)} · ${esc(v.placa)}</option>`).join(''); if(cur) sel.value=cur;
   if(!$('#lcAno').value) $('#lcAno').value=vcAno;
@@ -1060,6 +1060,13 @@ $('#fLic').addEventListener('submit',async e=>{e.preventDefault(); const m=$('#m
   const id='lv-'+placa+'-'+ano, ex=(S.licenc||[]).find(l=>l.id===id);
   try{await store.put('licenc',id,{...(ex?(({id,...r})=>r)(ex):{}),placa,ano,venc,valor,pago,pagoEm:pago?((ex&&ex.pagoEm)||today()):null}); flash(m,`${veicNome(placa)} ${ano} salvo.`,true); vcAno=ano; $('#lcValor').value='';$('#lcVenc').value=''; renderVeic();}
   catch(err){flash(m,errTxt(err));}
+});
+
+/* Consultar no Detran-GO: abre o site oficial e copia placa e RENAVAM para colar (o Detran pede captcha, então não dá para consultar sozinho). */
+document.addEventListener('click',e=>{const a=e.target.closest('[data-detran]'); if(!a) return;
+  const [pl,rv]=a.dataset.detran.split('|'); const t=rv?rv:pl;
+  try{navigator.clipboard&&navigator.clipboard.writeText(t).catch(()=>{});}catch(err){}
+  flash($('#mVeic'),`${rv?'RENAVAM '+rv:'Placa '+pl} copiado. No site do Detran, escolha consultar veículo e cole.`,true);
 });
 
 /* Botão Pagar/Desfazer: marca o mesmo quadradinho da linha (contas, faturas e veículos). */
