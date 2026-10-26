@@ -229,11 +229,12 @@ nav.tabs .ts{display:none}
 @media (max-width:640px){
   body{padding-bottom:calc(64px + env(safe-area-inset-bottom,0px))}
   nav.tabs{background:rgba(20,26,46,.94);position:fixed;top:auto;bottom:0;left:0;right:0;margin:0;border-top:1px solid var(--line);border-bottom:0;padding-bottom:env(safe-area-inset-bottom,0px);box-shadow:0 -4px 16px rgba(0,0,0,.06)}
-  nav.tabs .wrap{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:0;padding:0 2px;overflow:visible}
+  nav.tabs .wrap{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:0;padding:0 2px;overflow:visible}
   nav.tabs button{padding:14px 0 12px;font-size:10px;letter-spacing:-.01em;border-bottom:0;border-top:2px solid transparent;min-height:52px;overflow:hidden;text-overflow:ellipsis}
   nav.tabs button[aria-selected="true"]{border-top-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
   nav.tabs .tl{display:none} nav.tabs .ts{display:inline}
   nav.tabs button{font-size:9px!important;letter-spacing:-.04em;padding-left:0!important;padding-right:0!important;text-overflow:clip!important}
+  nav.tabs .wrap{display:flex!important;justify-content:space-between} nav.tabs .wrap>button{flex:1 1 auto;min-width:0;padding-left:1px!important;padding-right:1px!important}
   input,select,textarea{font-size:16px!important}
   .btn{min-height:42px}
   .btn.small{min-height:34px;padding-left:12px;padding-right:12px}
@@ -335,6 +336,7 @@ html,body{margin:0;background:var(--bg)}
     <button role="tab" data-tab="contas" aria-selected="false"><span class="tl">Contas a pagar</span><span class="ts">Contas</span></button>
     <button role="tab" data-tab="chacara" aria-selected="false"><span class="tl">Chácara</span><span class="ts">Chácara</span></button>
     <button role="tab" data-tab="veiculos" aria-selected="false"><span class="tl">Veículos</span><span class="ts">Veículos</span></button>
+    <button role="tab" data-tab="luzagua" aria-selected="false"><span class="tl">Luz e água</span><span class="ts">Luz</span></button>
       </div>
 </nav>
 
@@ -775,6 +777,34 @@ html,body{margin:0;background:var(--bg)}
       </form>
       <div class="msg" id="mVeic"></div>
       <div class="tbl" style="margin-top:12px"><table id="tblVeic"></table></div>
+    </div>
+  </section>
+
+  <section class="panel" data-panel="luzagua" hidden>
+    <div class="card">
+      <div class="headrow">
+        <div><h2>Contas de luz e água</h2><p class="sub">Todas as unidades do mês. Digite o valor da conta e marque quando pagar.</p></div>
+        <div class="fatnav"><button class="btn ghost small" id="uaPrev" aria-label="Mês anterior">‹</button><span class="mes" id="uaMes"></span><button class="btn ghost small" id="uaNext" aria-label="Próximo mês">›</button></div>
+      </div>
+      <div class="seg" id="uaSeg" style="margin:4px 0 14px"><button aria-pressed="true" data-ua="">Todas</button><button aria-pressed="false" data-ua="energia">Energia</button><button aria-pressed="false" data-ua="agua">Água</button></div>
+      <div class="ckpis ck4" id="uaKpis"></div>
+      <div class="msg" id="mUaVal"></div>
+      <div class="tbl" style="margin-top:14px"><table id="tblUa"></table></div>
+    </div>
+    <div class="card">
+      <h2>Cadastrar unidade</h2>
+      <p class="sub">Uma conta de energia ou de água. Para corrigir uma que já existe, toque em Editar na lista.</p>
+      <form class="f" id="fUc">
+        <label class="fld">Tipo<select id="ucTipo"><option value="energia">Energia</option><option value="agua">Água</option></select></label>
+        <label class="fld">Número da conta<input id="ucNum" autocomplete="off" inputmode="numeric" maxlength="20"></label>
+        <label class="fld">No nome de<input id="ucTit" autocomplete="off" list="ucTitList" placeholder="Gilmar"></label>
+        <label class="fld">Dia do vencimento<input id="ucDia" type="number" min="1" max="31" step="1" inputmode="numeric"></label>
+        <label class="fld wide">Local ou inquilino<input id="ucLocal" required autocomplete="off" placeholder="Casa da loja"></label>
+        <label class="fld wide">Endereço<input id="ucEnd" autocomplete="off"></label>
+        <button class="btn" type="submit">Cadastrar</button>
+      </form>
+      <datalist id="ucTitList"><option value="Gilmar"><option value="Aida"><option value="Higor"></datalist>
+      <div class="msg" id="mUc"></div>
     </div>
   </section>
 </main>

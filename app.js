@@ -51,7 +51,7 @@ function demoState(){
 }
 
 /* ---------- Estado e armazenamento ---------- */
-let S = {ativos:[],ops:[],divs:[],cartoes:[],gastos:[],contas:[],receitas:[],vendas:[],clientes:[],faturas:[],producao:[],leitemes:[],chgastos:[],animais:[],veiculos:[],licenc:[],config:{taxaBazin:6}};
+let S = {ativos:[],ops:[],divs:[],cartoes:[],gastos:[],contas:[],receitas:[],vendas:[],clientes:[],faturas:[],producao:[],leitemes:[],chgastos:[],animais:[],veiculos:[],licenc:[],ucs:[],ucmes:[],config:{taxaBazin:6}};
 let loaded = {ativos:false,ops:false,divs:false};
 let db=null, mode='loading';
 
@@ -60,7 +60,7 @@ function view(){ const ready = mode==='local' || (mode==='db' && loaded.ativos &
 
 /* Proteções de escrita: só coleções conhecidas, ids sem barra (não dá para apontar para outro caminho da base),
    dados limpos e limite de alterações por tempo. Quem pode ler e gravar é definido pelas regras da base (só o dono). */
-const COLS=['ativos','compras','dividendos','cartoes','gastos','contas','receitas','vendas','clientes','producao','leitemes','chgastos','animais','faturas','veiculos','licenc','acesso','config'];
+const COLS=['ativos','compras','dividendos','cartoes','gastos','contas','receitas','vendas','clientes','producao','leitemes','chgastos','animais','faturas','veiculos','licenc','ucs','ucmes','acesso','config'];
 const ID_RE=/^(?!\.\.?$)[A-Za-z0-9_\-.~:@+]{1,200}$/;
 function bad(code){const e=new Error(code);e.code=code;return e;}
 function clean(v,d=0){
@@ -109,14 +109,14 @@ async function boot(){
       S[key]=snap.docs.map(x=>({id:x.id,...x.data()})); loaded[key]=true;
       setSync(true,'Salvo na nuvem'); render();
     },err=>{setSync(false,'Sem conexão com a base ('+(err&&err.code||'erro')+')');});
-    sub('ativos','ativos'); sub('compras','ops'); sub('dividendos','divs'); sub('cartoes','cartoes'); sub('gastos','gastos'); sub('contas','contas'); sub('receitas','receitas'); sub('vendas','vendas'); sub('clientes','clientes'); sub('producao','producao'); sub('leitemes','leitemes'); sub('chgastos','chgastos'); sub('animais','animais'); sub('faturas','faturas'); sub('veiculos','veiculos'); sub('licenc','licenc');
+    sub('ativos','ativos'); sub('compras','ops'); sub('dividendos','divs'); sub('cartoes','cartoes'); sub('gastos','gastos'); sub('contas','contas'); sub('receitas','receitas'); sub('vendas','vendas'); sub('clientes','clientes'); sub('producao','producao'); sub('leitemes','leitemes'); sub('chgastos','chgastos'); sub('animais','animais'); sub('faturas','faturas'); sub('veiculos','veiculos'); sub('licenc','licenc'); sub('ucs','ucs'); sub('ucmes','ucmes');
     db.doc('acesso/pin').onSnapshot(s=>{ pinSet(s.exists?s.data():null); },()=>{ pinSet(null); });
     db.doc('config/geral').onSnapshot(s=>{ if(s.exists) S.config={taxaBazin:6,...s.data()}; render(); },()=>{});
     setSync(false,'Carregando…');
     setTimeout(()=>{ if(mode==='db'){ render(); } },1500);
   } else {
     mode='local'; try{pinSet(JSON.parse(localStorage.getItem('carteira-pin')||'null'));}catch(e){pinSet(null);}
-    try{const raw=localStorage.getItem(KEY); if(raw){const p=JSON.parse(raw); S={...S,...p}; S.cartoes=S.cartoes||[]; S.gastos=S.gastos||[]; S.contas=S.contas||[]; S.receitas=S.receitas||[]; S.vendas=S.vendas||[]; ['clientes','producao','leitemes','chgastos','animais','faturas','veiculos','licenc'].forEach(k=>S[k]=S[k]||[]);}}catch(e){}
+    try{const raw=localStorage.getItem(KEY); if(raw){const p=JSON.parse(raw); S={...S,...p}; S.cartoes=S.cartoes||[]; S.gastos=S.gastos||[]; S.contas=S.contas||[]; S.receitas=S.receitas||[]; S.vendas=S.vendas||[]; ['clientes','producao','leitemes','chgastos','animais','faturas','veiculos','licenc','ucs','ucmes'].forEach(k=>S[k]=S[k]||[]);}}catch(e){}
     setSync(false,'Salvo só neste navegador');
     render();
   }
@@ -312,7 +312,7 @@ function render(){
 
   $('#ativosList').innerHTML=S.ativos.map(a=>`<option value="${esc(a.ticker)}">${esc((a.nome||a.ticker)+' · '+(MODS[a.classe]||MODS.outro).l)}</option>`).join('');
   renderHist(V,demo);
-  renderCartoes(); renderContas(); renderVenc(parcelas()); renderVendas(); renderVeic();
+  renderCartoes(); renderContas(); renderVenc(parcelas()); renderVendas(); renderVeic(); renderUa();
 }
 
 const PAL=['#4fd08a','#f7b538','#ff5c74','#7c5cff','#5aa9ff','#2dd4bf','#f472b6','#a3e635','#fb923c','#94a3b8'];
@@ -564,7 +564,10 @@ function vencendo(P){
     out.push({c,d,st:d<hoje?'late':d===hoje?'hoje':'breve'});
   }
   for(const l of (S.licenc||[])){ if(l.pago||!l.venc||l.venc>lim||l.venc<ymAdd(ym,-12)+'-01') continue;
-    out.push({c:{descricao:'Licenciamento '+veicNome(l.placa),valor:l.valor,lic:1},d:l.venc,st:l.venc<hoje?'late':l.venc===hoje?'hoje':'breve'}); }
+    out.push({c:{descricao:'Licenciamento '+veicNome(l.placa),valor:l.valor,lic:1,tab:'veiculos'},d:l.venc,st:l.venc<hoje?'late':l.venc===hoje?'hoje':'breve'}); }
+  for(const mm of [ymAdd(ym,-1),ym,ymAdd(ym,1)]){ if(mm<UA_INI) continue;
+    for(const u of (S.ucs||[])){ const d=vencData({dia:u.dia,mes:mm}); if(!d||d>lim) continue; const r=uaMesDoc(u.id,mm); if(r&&r.pago) continue;
+      out.push({c:{descricao:(u.tipo==='agua'?'Água ':'Luz ')+u.local,valor:r&&r.valor!=null?r.valor:null,tab:'luzagua'},d,st:d<hoje?'late':d===hoje?'hoje':'breve'}); } }
   return out.sort((a,b)=>a.d<b.d?-1:1);
 }
 function renderVenc(P){
@@ -574,8 +577,8 @@ function renderVenc(P){
   const late=L.filter(x=>x.st==='late').length;
   el.className='vbanner'+(late?' late':'');
   el.innerHTML=`<div><b>${late?late+' conta'+(late===1?'':'s')+' vencida'+(late===1?'':'s')+(L.length>late?' e '+(L.length-late)+' vencendo':''):L.length+' conta'+(L.length===1?'':'s')+' vencendo'}</b>
-    <ul>${L.slice(0,6).map(x=>`<li>${esc(x.c.descricao)} · <span class="num">${R(+x.c.valor)}</span> · ${x.st==='late'?'venceu '+fmtD(x.d):x.st==='hoje'?'vence hoje':'vence '+dias(x.d)+' ('+fmtD(x.d)+')'}</li>`).join('')}${L.length>6?`<li>e mais ${L.length-6}</li>`:''}</ul></div>
-    ${L.every(x=>x.c.lic)?'<button class="btn small" data-goto="veiculos">Ver veículos</button>':'<button class="btn small" data-goto="contas">Ver contas</button>'}`;
+    <ul>${L.slice(0,6).map(x=>`<li>${esc(x.c.descricao)} · ${x.c.valor==null?'':`<span class="num">${R(+x.c.valor)}</span> · `}${x.st==='late'?'venceu '+fmtD(x.d):x.st==='hoje'?'vence hoje':'vence '+dias(x.d)+' ('+fmtD(x.d)+')'}</li>`).join('')}${L.length>6?`<li>e mais ${L.length-6}</li>`:''}</ul></div>
+    ${L.every(x=>x.c.tab==='veiculos')?'<button class="btn small" data-goto="veiculos">Ver veículos</button>':L.every(x=>x.c.tab==='luzagua')?'<button class="btn small" data-goto="luzagua">Ver luz e água</button>':'<button class="btn small" data-goto="contas">Ver contas</button>'}`;
   el.hidden=false;
 }
 function contasDoMes(ym,P){
@@ -667,6 +670,7 @@ function edSchema(col,d){
       {k:'produto',l:'Compra',t:'select',opts:[['','Leite e queijo'],['Queijo','Queijo'],['Leite','Leite']]}]};
     case 'chgastos': return {tit:'Editar despesa da chácara',f:[{k:'mes',l:'Mês',t:'month'},{k:'descricao',l:'Descrição',t:'text',wide:1},num('valor','Valor (R$)',{step:'0.01'})]};
     case 'veiculos': return {tit:'Editar veículo',sub:'Placa '+d.placa,f:[{k:'nome',l:'Veículo',t:'text',wide:1},{k:'renavam',l:'RENAVAM',t:'text',opt:1},{k:'obs',l:'Observação',t:'text',wide:1,opt:1}]};
+    case 'ucs': return {tit:'Editar unidade',sub:(d.tipo==='agua'?'Água':'Energia')+(d.numero?' · conta '+d.numero:''),f:[{k:'tipo',l:'Tipo',t:'select',opts:[['energia','Energia'],['agua','Água']]},{k:'numero',l:'Número da conta',t:'text',opt:1},{k:'titular',l:'No nome de',t:'text',list:'ucTitList',opt:1},num('dia','Dia do vencimento',{step:'1',min:1,max:31,opt:1}),{k:'local',l:'Local ou inquilino',t:'text',wide:1},{k:'endereco',l:'Endereço',t:'text',wide:1,opt:1},{k:'obs',l:'Observação',t:'text',wide:1,opt:1}]};
     case 'licenc': return {tit:'Editar pagamento do veículo',sub:veicNome(d.placa)+' · '+d.ano,f:[{k:'venc',l:'Vencimento',t:'date',opt:1},num('valor','Valor (R$)',{step:'0.01'}),{k:'pago',l:'Situação',t:'select',opts:[['0','A pagar'],['1','Pago']]},{k:'obs',l:'Observação',t:'text',wide:1,opt:1}]};
     case 'animais': return {tit:'Editar animal',f:[{k:'nome',l:'Nome',t:'text',wide:1},{k:'obs',l:'Observação',t:'text',wide:1,opt:1}]};
     case 'receitas': return {tit:'Editar receita',f:[{k:'mes',l:'Mês',t:'month'},{k:'fonte',l:'Fonte',t:'text',wide:1},num('valor','Valor (R$)',{step:'0.01'})]};
@@ -712,6 +716,7 @@ $('#edForm').addEventListener('submit',async e=>{
   if(col==='gastos'){ data.parcelas=Math.round(data.parcelas); if(!(data.parcelas>=1&&data.parcelas<=48)){flash(m,'Parcelas de 1 a 48.');return;} if(!data.valor){flash(m,'Informe o valor.');return;} if(data.data!==d.data||data.cartao!==d.cartao) delete data.fatura; }
   if(col==='cartoes'&&(!(data.fech>=1&&data.fech<=31)||!(data.venc>=1&&data.venc<=31))){flash(m,'Os dias vão de 1 a 31.');return;}
   if(col==='contas'&&!data.parcela) delete data.parcela;
+  if(col==='ucs'&&data.dia!=null){ data.dia=Math.round(data.dia); if(!(data.dia>=1&&data.dia<=31)){flash(m,'O dia vai de 1 a 31.');return;} }
   if(col==='licenc'){ if(!data.venc) data.venc=null; data.pagoEm=data.pago?(d.pagoEm||today()):null; }
   if(col==='compras'&&!(data.qtd>0)){flash(m,'Informe a quantidade.');return;}
   if('valor' in data&&col!=='gastos'&&!(data.valor>0)){flash(m,'Informe o valor.');return;}
@@ -1069,6 +1074,56 @@ document.addEventListener('click',e=>{const a=e.target.closest('[data-detran]');
   flash($('#mVeic'),`${rv?'RENAVAM '+rv:'Placa '+pl} copiado. No site do Detran, escolha consultar veículo e cole.`,true);
 });
 
+/* ---------- Luz e água: contas por unidade consumidora, mês a mês ---------- */
+const UA_INI='2026-11';  // aviso de vencimento a partir deste mês (antes disso não havia valores lançados)
+let uaYM=today().slice(0,7), uaTipo='';
+const uaMesDoc=(uc,ym)=>(S.ucmes||[]).find(x=>x.id==='um-'+uc+'-'+ym);
+function renderUa(){
+  const hoje=today(); $('#uaMes').textContent=ymNome(uaYM);
+  const U=(S.ucs||[]).filter(u=>!uaTipo||u.tipo===uaTipo).map(u=>({u,r:uaMesDoc(u.id,uaYM),d:vencData({dia:u.dia,mes:uaYM})}))
+    .sort((a,b)=>(!!(a.r&&a.r.pago)-!!(b.r&&b.r.pago))||(a.d||'9').localeCompare(b.d||'9')||(a.u.local||'').localeCompare(b.u.local||'','pt'));
+  const val=x=>x.r&&x.r.valor!=null?+x.r.valor:0;
+  const tot=U.reduce((t,x)=>t+val(x),0), pgL=U.filter(x=>x.r&&x.r.pago), pg=pgL.reduce((t,x)=>t+val(x),0);
+  const late=U.filter(x=>!(x.r&&x.r.pago)&&x.d&&x.d<hoje), semV=U.filter(x=>!(x.r&&x.r.valor!=null)).length;
+  $('#uaKpis').innerHTML=`
+    <div class="ckpi"><div class="l">Total do mês</div><div class="v">${R(tot)}</div><div class="s">${U.length-semV} de ${U.length} com valor</div></div>
+    <div class="ckpi"><div class="l">Pago</div><div class="v up">${R(pg)}</div><div class="s">${pgL.length} paga${pgL.length===1?'':'s'}</div></div>
+    <div class="ckpi"><div class="l">Falta pagar</div><div class="v ${tot-pg>0.004?'down':''}">${R(tot-pg)}</div><div class="s">${U.length-pgL.length} em aberto</div></div>
+    <div class="ckpi"><div class="l">Vencidas</div><div class="v ${late.length?'down':''}">${late.length}</div><div class="s">${late.length?'passaram do dia':'nenhuma atrasada'}</div></div>`;
+  $('#tblUa').innerHTML=U.length?`<thead><tr><th>Local</th><th>Vencimento</th><th class="n">Valor</th><th></th></tr></thead><tbody>${U.map(({u,r,d})=>{const pago=!!(r&&r.pago);
+    const st=pago?(r.pagoEm?' <span class="sub2">pago '+fmtD(r.pagoEm)+'</span>':''):(d&&d<hoje?' <span class="tag late">vencida</span>':'');
+    return `<tr class="${pago?'pago':''}"><td><label style="display:inline-flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" class="ckpago" data-upago="${esc(u.id)}" ${pago?'checked':''} aria-label="Marcar ${esc(u.local)} como paga"><b>${esc(u.local)}</b></label><span class="sub2" style="display:block;flex-basis:100%">${u.tipo==='agua'?'Água':'Energia'}${u.titular?' · '+esc(u.titular):''}${u.numero?' · '+esc(u.numero):''}${u.endereco?' · '+esc(u.endereco):''}${u.obs?' · '+esc(u.obs):''}</span></td>
+      <td>${d?fmtD(d):'<span class="sub2">sem dia</span>'}${st}</td>
+      <td class="n"><input class="ucval" type="number" min="0" step="0.01" inputmode="decimal" placeholder="R$" aria-label="Valor de ${esc(u.local)}" data-ucval="${esc(u.id)}" value="${r&&r.valor!=null?esc(String(r.valor)):''}" style="width:7.5em;text-align:right"></td>
+      <td style="width:1%"><span class="acts">${pago?'<button class="btn ghost small" type="button" data-paybtn>Desfazer</button>':'<button class="btn small" type="button" data-paybtn>Pagar</button>'}<button class="btn ghost small" data-ed="ucs" data-id="${esc(u.id)}">Editar</button><button class="btn danger small" data-del="ucs" data-id="${esc(u.id)}">Excluir</button></span></td></tr>`;}).join('')}</tbody><tfoot><tr><td>Total</td><td></td><td class="n">${R(tot)}</td><td></td></tr></tfoot>`
+    :`<tr><td class="empty">Nenhuma unidade cadastrada${uaTipo?' deste tipo':''}.</td></tr>`;
+}
+async function uaSalvaMes(uc,patch){
+  const id='um-'+uc+'-'+uaYM, ex=uaMesDoc(uc,uaYM), base=ex?(({id,...r})=>r)(ex):{uc,mes:uaYM,valor:null,pago:false,pagoEm:null};
+  await store.put('ucmes',id,{...base,...patch});
+}
+$('#uaPrev').addEventListener('click',()=>{uaYM=ymAdd(uaYM,-1);renderUa();});
+$('#uaNext').addEventListener('click',()=>{uaYM=ymAdd(uaYM,1);renderUa();});
+$('#uaSeg').addEventListener('click',e=>{const b=e.target.closest('[data-ua]'); if(!b) return; uaTipo=b.dataset.ua; $('#uaSeg').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b)); renderUa();});
+document.addEventListener('change',async e=>{
+  const k=e.target.closest('[data-upago]');
+  if(k){ try{await uaSalvaMes(k.dataset.upago,{pago:k.checked,pagoEm:k.checked?today():null});}catch(err){k.checked=!k.checked; alert(errTxt(err));} return; }
+  const v=e.target.closest('[data-ucval]'); if(!v) return;
+  const n=v.value.trim()===''?null:Math.round(+v.value*100)/100;
+  if(n!=null&&!(n>=0)){flash($('#mUaVal'),'Valor inválido.');return;}
+  try{await uaSalvaMes(v.dataset.ucval,{valor:n}); flash($('#mUaVal'),'Valor salvo.',true);}catch(err){flash($('#mUaVal'),errTxt(err));}
+});
+$('#fUc').addEventListener('submit',async e=>{e.preventDefault(); const m=$('#mUc');
+  const tipo=$('#ucTipo').value, numero=$('#ucNum').value.trim()||null, titular=$('#ucTit').value.trim()||null, local=$('#ucLocal').value.trim(), endereco=$('#ucEnd').value.trim()||null;
+  const dv=$('#ucDia').value.trim(), dia=dv===''?null:Math.round(+dv);
+  if(!local){flash(m,'Informe o local ou inquilino.');return;} if(dia!=null&&!(dia>=1&&dia<=31)){flash(m,'O dia vai de 1 a 31.');return;}
+  const slug=(numero||local).normalize('NFD').replace(/[^A-Za-z0-9]+/g,'-').replace(/^-|-$/g,'').toLowerCase().slice(0,40)||'u';
+  const id=(tipo==='agua'?'ag-':'en-')+(numero?slug:'sem-'+slug);
+  if((S.ucs||[]).some(u=>u.id===id)){flash(m,'Essa conta já está cadastrada. Use Editar na lista.');return;}
+  try{await store.put('ucs',id,{tipo,numero,titular,endereco,local,dia}); flash(m,`${local} cadastrada.`,true); ['#ucNum','#ucLocal','#ucEnd','#ucDia'].forEach(s=>$(s).value='');}
+  catch(err){flash(m,errTxt(err));}
+});
+
 /* Botão Pagar/Desfazer: marca o mesmo quadradinho da linha (contas, faturas e veículos). */
 document.addEventListener('click',e=>{const b=e.target.closest('[data-paybtn]'); if(!b) return;
   const k=b.closest('tr')&&b.closest('tr').querySelector('input.ckpago'); if(!k) return;
@@ -1076,11 +1131,11 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-paybtn]');
 });
 
 /* ---------- Abas ---------- */
-const TABS=['resumo','carteira','dividendos','aporte','lancar','cartoes','contas','chacara','veiculos'];
+const TABS=['resumo','carteira','dividendos','aporte','lancar','cartoes','contas','chacara','veiculos','luzagua'];
 function go(t){ if(t==='fiado'){t='chacara'; chSeg('fiado');} if(!TABS.includes(t)) t='resumo';
   document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));
   document.querySelectorAll('[data-panel]').forEach(p=>p.hidden=p.dataset.panel!==t);
-  $('#kpis').hidden=(t==='contas'||t==='cartoes'||t==='chacara'||t==='veiculos');
+  $('#kpis').hidden=(t==='contas'||t==='cartoes'||t==='chacara'||t==='veiculos'||t==='luzagua');
   try{localStorage.setItem('carteira-tab',t);}catch(e){}
   if(matchMedia('(max-width:640px)').matches&&go.ready) window.scrollTo({top:0});
   go.ready=true;
