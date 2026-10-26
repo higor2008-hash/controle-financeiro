@@ -927,7 +927,7 @@ try{chSeg(localStorage.getItem('carteira-chseg')||'main');}catch(e){chSeg('main'
 
 /* ---------- Senha de acesso (PIN) ----------
    Trava de tela: o site já só abre para a conta do dono; o PIN impede que alguém com o celular destravado veja os dados.
-   Guarda só o hash PBKDF2 com sal, nunca o PIN. Bloqueia após 5 min sem uso e espera após 5 erros. */
+   Guarda só o hash PBKDF2 com sal, nunca o PIN. Bloqueia após 10 min sem uso; senha nova tem 6 números e espera após 5 erros. */
 let PIN=undefined, lockMode='load';
 const hex=b=>[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
 async function pinHash(pin,salt,iter){
@@ -936,7 +936,7 @@ async function pinHash(pin,salt,iter){
   return hex(bits);
 }
 function eqStr(a,b){ if(a.length!==b.length) return false; let r=0; for(let i=0;i<a.length;i++) r|=a.charCodeAt(i)^b.charCodeAt(i); return r===0; }
-const IDLE=5*60*1000; let lastAct=Date.now();
+const IDLE=10*60*1000; let lastAct=Date.now();
 function unlocked(){ try{const t=+sessionStorage.getItem('carteira-unl')||0; return Date.now()-t<IDLE;}catch(e){return false;} }
 function touch(){ lastAct=Date.now(); if(!document.body.classList.contains('locked')) try{sessionStorage.setItem('carteira-unl',String(lastAct));}catch(e){} }
 ['click','keydown','touchstart','scroll'].forEach(ev=>document.addEventListener(ev,touch,{passive:true}));
@@ -944,7 +944,7 @@ setInterval(()=>{ if(PIN&&!document.body.classList.contains('locked')&&Date.now(
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&PIN&&!unlocked()) lockShow('enter'); });
 function lockShow(m){
   lockMode=m; const L=$('#lockScr'); L.hidden=false; document.body.classList.add('locked');
-  const t={menu:['Senha de acesso',0,0,''],verify:['Digite a senha atual',1,0,'Continuar'],load:['Carregando…',0,0,''],enter:['Digite sua senha para entrar',1,0,'Entrar'],create:['Crie uma senha de 4 a 8 números',1,1,'Salvar senha'],change:['Digite a nova senha (4 a 8 números)',1,1,'Salvar senha'],remove:['Digite a senha atual para remover',1,0,'Remover senha']}[m];
+  const t={menu:['Senha de acesso',0,0,''],verify:['Digite a senha atual',1,0,'Continuar'],load:['Carregando…',0,0,''],enter:['Digite sua senha para entrar',1,0,'Entrar'],create:['Crie uma senha de 6 números',1,1,'Salvar senha'],change:['Digite a nova senha (6 números)',1,1,'Salvar senha'],remove:['Digite a senha atual para remover',1,0,'Remover senha']}[m];
   $('#lockSub').textContent=t[0]; $('#lockPin').hidden=!t[1]; $('#lockPin2').hidden=!t[2]; $('#lockBtn').hidden=!t[3]; $('#lockBtn').textContent=t[3];
   $('#lockCancel').hidden=!['create','change','remove','menu','verify'].includes(m); $('#lockMenu').hidden=m!=='menu'; $('#lockMsg').textContent=''; $('#lockMsg').className='msg';
   $('#lockPin').value=''; $('#lockPin2').value=''; bioUI(); if(t[1]&&!(bioOk&&bioId()&&m==='enter')) setTimeout(()=>$('#lockPin').focus(),50);
@@ -994,6 +994,7 @@ async function pinOk(v){
 $('#lockForm').addEventListener('submit',async e=>{
   e.preventDefault(); const m=$('#lockMsg'), v=$('#lockPin').value.trim(), v2=$('#lockPin2').value.trim(); m.className='msg err';
   if(!/^\d{4,8}$/.test(v)){ m.textContent='A senha tem de 4 a 8 números.'; return; }
+  if((lockMode==='create'||lockMode==='change')&&!/^\d{6}$/.test(v)){ m.textContent='A senha precisa ter 6 números.'; return; }
   $('#lockBtn').disabled=true;
   try{
     if(lockMode==='enter'||lockMode==='remove'||lockMode==='verify'){
