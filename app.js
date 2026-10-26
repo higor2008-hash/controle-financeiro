@@ -1095,7 +1095,7 @@ function renderUa(){
     return `<tr class="${pago?'pago':''}"><td><label style="display:inline-flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" class="ckpago" data-upago="${esc(u.id)}" ${pago?'checked':''} aria-label="Marcar ${esc(u.local)} como paga"><b>${esc(u.local)}</b></label><span class="sub2" style="display:block;flex-basis:100%">${u.tipo==='agua'?'Água':'Energia'}${u.titular?' · '+esc(u.titular):''}${u.numero?' · '+esc(u.numero):''}${u.endereco?' · '+esc(u.endereco):''}${u.obs?' · '+esc(u.obs):''}</span></td>
       <td>${d?fmtD(d):'<span class="sub2">sem dia</span>'}${st}</td>
       <td class="n"><input class="ucval" type="number" min="0" step="0.01" inputmode="decimal" placeholder="R$" aria-label="Valor de ${esc(u.local)}" data-ucval="${esc(u.id)}" value="${r&&r.valor!=null?esc(String(r.valor)):''}" style="width:7.5em;text-align:right"></td>
-      <td style="width:1%"><span class="acts">${pago?'<button class="btn ghost small" type="button" data-paybtn>Desfazer</button>':'<button class="btn small" type="button" data-paybtn>Pagar</button>'}<button class="btn ghost small" data-ed="ucs" data-id="${esc(u.id)}">Editar</button><button class="btn danger small" data-del="ucs" data-id="${esc(u.id)}">Excluir</button></span></td></tr>`;}).join('')}</tbody><tfoot><tr><td>Total</td><td></td><td class="n">${R(tot)}</td><td></td></tr></tfoot>`
+      <td style="width:1%"><span class="acts">${pago?'<button class="btn ghost small" type="button" data-paybtn>Desfazer</button>':'<button class="btn small" type="button" data-paybtn>Pagar</button>'}${u.tipo==='energia'&&u.numero?`<a class="btn ghost small" href="https://goias.equatorialenergia.com.br/" target="_blank" rel="noopener noreferrer" data-uccopy="${esc(u.numero)}" title="Abre a Equatorial Goiás e copia o número da unidade">Ver na Equatorial</a>`:''}<button class="btn ghost small" data-ed="ucs" data-id="${esc(u.id)}">Editar</button><button class="btn danger small" data-del="ucs" data-id="${esc(u.id)}">Excluir</button></span></td></tr>`;}).join('')}</tbody><tfoot><tr><td>Total</td><td></td><td class="n">${R(tot)}</td><td></td></tr></tfoot>`
     :`<tr><td class="empty">Nenhuma unidade cadastrada${uaTipo?' deste tipo':''}.</td></tr>`;
 }
 async function uaSalvaMes(uc,patch){
@@ -1124,6 +1124,11 @@ $('#fUc').addEventListener('submit',async e=>{e.preventDefault(); const m=$('#mU
   catch(err){flash(m,errTxt(err));}
 });
 
+/* Ver na Equatorial: abre o site oficial e copia o número da unidade (o site pede login, então o valor não vem sozinho). */
+document.addEventListener('click',e=>{const a=e.target.closest('[data-uccopy]'); if(!a) return;
+  try{navigator.clipboard&&navigator.clipboard.writeText(a.dataset.uccopy).catch(()=>{});}catch(err){}
+  flash($('#mUaVal'),`Unidade ${a.dataset.uccopy} copiada. Na Equatorial, entre com seu CPF e cole o número para ver a conta.`,true);
+});
 /* Botão Pagar/Desfazer: marca o mesmo quadradinho da linha (contas, faturas e veículos). */
 document.addEventListener('click',e=>{const b=e.target.closest('[data-paybtn]'); if(!b) return;
   const k=b.closest('tr')&&b.closest('tr').querySelector('input.ckpago'); if(!k) return;
