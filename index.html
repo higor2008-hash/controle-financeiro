@@ -1,0 +1,795 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="theme-color" content="#141a2e">
+<title>Controle Financeiro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: cabeçalho com patrimônio, abas fixas, painéis de uma coluna que viram grade no desktop */
+:root{
+  --bg:#141a2e; --surface:#1b2238; --surface-2:#232b45; --line:#323b5a;
+  --ink:#eef1fb; --ink-2:#b3bad3; --ink-3:#8089a8;
+  --accent:#7c5cff; --accent-ink:#ffffff; --accent-soft:rgba(124,92,255,.22);
+  --gold:#f7b538; --gold-soft:rgba(247,181,56,.14); --blue:#5aa9ff;
+  --up:#4fd08a; --down:#ff5c74; --warn:#f7b538;
+  --glow:0 0 0 1px rgba(255,255,255,.02),0 10px 30px rgba(0,0,0,.25);
+  --f-display:"Poppins", "Segoe UI", system-ui, sans-serif;
+  --f-body:"Poppins", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --r:14px; color-scheme:dark;
+}
+/* visual escuro fixo (referência futurista); o tema claro do sistema não é aplicado de propósito */
+:root[data-theme="light"],:root[data-theme="dark"]{color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+.pill.fii{background:color-mix(in srgb,var(--gold) 18%,transparent);color:var(--gold)}
+.pill.acao{background:var(--accent-soft);color:var(--accent)}
+.pill.rf{background:color-mix(in srgb,var(--blue) 16%,transparent);color:var(--blue)}
+.pill.out{background:var(--surface-2);color:var(--ink-2)}
+.bar .fill.rf{background:var(--blue)} .bar .fill.fii{background:var(--gold)} .bar .fill.out{background:var(--ink-3)}
+.f [data-only]{display:flex}
+.f .wide{grid-column:1/-1}
+.sub2{color:var(--ink-3);font-size:12px}
+.itens{margin-top:4px;font-size:12px;color:var(--ink-2)}
+.itens summary{cursor:pointer;color:var(--ink-3)}
+.itens ul{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:2px;max-width:28em}
+.itens li{display:flex;justify-content:space-between;gap:12px}
+@media (max-width:560px){#tblContas th:nth-child(3),#tblContas td:nth-child(3){display:none}}
+tr.pago td{color:var(--ink-3)}
+tr.pago .cdesc{text-decoration:line-through}
+.ckpago{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
+.ckpi .v.up{color:var(--up)} .ckpi .v.down{color:var(--down)}
+.acts{display:inline-flex;gap:6px;justify-content:flex-end}
+dialog#edDlg{border:1px solid var(--line);border-radius:14px;padding:20px;background:var(--surface);color:var(--ink);width:min(560px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+dialog#edDlg::backdrop{background:rgba(0,0,0,.45)}
+dialog#edDlg h2{font-size:18px;font-weight:700}
+.edbtns{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
+@media (max-width:640px){dialog#edDlg{width:100vw;max-width:100vw;margin:auto 0 0;border-radius:16px 16px 0 0;max-height:90dvh;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}.edbtns .btn{flex:1}}
+.fatnav{display:flex;align-items:center;gap:8px}
+.fatnav .mes{font-family:var(--f-display);font-weight:700;font-size:18px;min-width:9.5em;text-align:center;text-transform:capitalize}
+.ckpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media (max-width:720px){.ckpis{grid-template-columns:minmax(0,1fr)}}
+.ckpi{background:var(--surface-2);border-radius:8px;padding:12px 14px;min-width:0}
+.ckpi .l{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3)}
+.ckpi .v{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:20px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ckpi .s{font-size:12px;color:var(--ink-2)}
+.cardchips{display:flex;flex-wrap:wrap;gap:8px}
+.cchip{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--surface);min-width:0}
+.cchip b{font-family:var(--f-display)}
+.limbar{height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden;width:120px}
+.limbar i{display:block;height:100%;background:var(--accent)}
+.limbar i.hi{background:var(--down)}
+body{background-color:var(--bg);background-image:radial-gradient(rgba(255,255,255,.07) 1px,transparent 1.4px),radial-gradient(1200px 600px at 10% -10%,rgba(124,92,255,.16),transparent 60%),radial-gradient(900px 500px at 110% 10%,rgba(79,208,138,.08),transparent 60%);background-size:22px 22px,auto,auto;background-attachment:fixed;color:var(--ink);font-family:var(--f-body);font-size:14.5px;line-height:1.55}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.wrap{max-width:1120px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.15}
+.num,td.n,th.n{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+header.top{padding-block:24px 8px}
+.brand{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.brand h1{font-size:clamp(28px,4.4vw,40px);font-weight:600;letter-spacing:-.02em;background:linear-gradient(90deg,#fff,#c9bfff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.brand small{color:var(--ink-3);font-size:13px}
+.sync{font-size:12px;color:var(--ink-3);display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ink-3)}
+.dot.ok{background:var(--up)}
+
+.kpis[hidden]{display:none}
+.lock{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;background:radial-gradient(800px 500px at 50% 0%,rgba(124,92,255,.25),transparent 70%),var(--bg)}
+.lock[hidden]{display:none}
+body.locked>*:not(.lock){visibility:hidden}
+.lockbox{width:100%;max-width:340px;display:flex;flex-direction:column;align-items:stretch;gap:12px;text-align:center;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:28px 22px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.lockmenu{display:flex;flex-direction:column;gap:10px}
+.lockico{color:var(--accent);display:flex;justify-content:center}
+.lockbox h2{margin:0}
+.lockbox input{font-size:24px!important;text-align:center;letter-spacing:.4em;font-family:var(--f-mono)}
+.hdr-r{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:flex-end}
+body.priv .v,body.priv .num,body.priv td.n,body.priv .kpi .s,body.priv .ckpi .s,body.priv .donut text,body.priv #bancoSeg .sub2,body.priv #chartMes text,body.priv .ckpis .v{filter:blur(7px);user-select:none}
+.vbanner{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;margin-bottom:18px;padding:12px 16px;border-radius:var(--r);border:1px solid rgba(247,181,56,.45);background:rgba(247,181,56,.08)}
+.tag{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;margin-left:4px}.tag.late{background:rgba(255,92,116,.16);color:var(--down)}
+.vbanner.late{border-color:rgba(255,92,116,.5);background:rgba(255,92,116,.08)}
+.vbanner ul{margin:6px 0 0;padding-left:18px;font-size:13px;color:var(--ink-2)}
+.vbanner b{color:var(--ink)}
+.ck4{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media (max-width:720px){.ck4{grid-template-columns:repeat(2,minmax(0,1fr))}.ck4 .v{font-size:17px}}
+.dias{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.dias button{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:6px 2px;color:var(--ink-3);font:inherit;font-size:11px;cursor:pointer;line-height:1.25;min-width:0}
+.dias button b{display:block;font-family:var(--f-mono);font-size:14px;color:var(--ink);font-weight:600}
+.dias button.tem{border-color:rgba(124,92,255,.5);background:rgba(124,92,255,.12)}
+.dias button[aria-pressed="true"]{outline:2px solid var(--accent)}
+#tblChG td:first-child{white-space:normal;width:100%}
+#tblChG td{padding-left:6px!important;padding-right:6px!important} #tblChG .btn.small{padding-left:9px;padding-right:9px}
+.fitot{display:flex;align-items:baseline;gap:10px;margin:14px 0 8px;white-space:nowrap;flex-wrap:wrap}
+.fitot b{font-size:20px}
+.fic{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:var(--surface)}
+.fic .hd{display:flex;align-items:center;gap:10px}
+.fic .hd{flex-wrap:wrap}
+.fic .hd b{flex:1 1 110px;min-width:0;overflow-wrap:anywhere}
+.fic ul{list-style:none;margin:8px 0 0;padding:0}
+.fic li{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line);font-size:13px}
+.fic li .v{text-align:right}
+.st.leite{background:#5aa9ff} .st.queijo{background:#f7b538}
+.fic .st{min-width:64px}
+@media (max-width:640px){.fic li{grid-template-columns:auto auto minmax(0,1fr)}.fic li .acts{grid-column:1/-1;justify-content:flex-end}}
+.chseg{margin-bottom:16px;display:flex;width:max-content;max-width:100%}
+.chseg button{padding:10px 18px;font-weight:600}
+@media (max-width:640px){.chseg{width:100%}.chseg button{flex:1;padding:12px 6px}}
+.anim{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:8px;background:var(--surface)}
+.anim .hd{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.anim ul{margin:6px 0 0;padding-left:18px;font-size:13px;color:var(--ink-2)}
+.anim li{display:flex;justify-content:space-between;gap:8px}
+.fatmore{display:flex;justify-content:center;padding:10px 0}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:18px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;min-width:0;box-shadow:var(--glow);position:relative;overflow:hidden}
+.kpi::after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--accent)}
+.kpi:nth-child(2)::after{background:var(--blue)} .kpi:nth-child(3)::after{background:var(--gold)} .kpi:nth-child(4)::after{background:var(--up)}
+.kpi .l{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3)}
+.kpi .v{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:clamp(17px,2.4vw,22px);font-weight:600;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi .s{font-size:12px;color:var(--ink-2)}
+.up{color:var(--up)} .down{color:var(--down)} .gold{color:var(--gold)}
+@media (max-width:720px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+nav.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:rgba(20,26,46,.86);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);margin-top:18px}
+nav.tabs .wrap{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
+nav.tabs button{background:none;border:0;padding:12px 12px 10px;border-bottom:2px solid transparent;color:var(--ink-2);font-weight:600;white-space:nowrap;cursor:pointer}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent);text-shadow:0 0 12px rgba(124,92,255,.6)}
+
+main{padding-block:20px 48px}
+.panel{display:flex;flex-direction:column;gap:20px}
+.grid2{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:20px}
+@media (max-width:860px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.card{background:linear-gradient(180deg,rgba(255,255,255,.025),transparent 120px),var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;min-width:0;box-shadow:var(--glow)}
+.card h2{font-size:18px;font-weight:500;letter-spacing:-.01em}
+.card .sub{color:var(--ink-2);font-size:13px;margin:2px 0 12px}
+.headrow{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+
+.banner{border:1px dashed var(--gold);background:var(--gold-soft);color:var(--ink);border-radius:var(--r);padding:12px 14px;font-size:14px;display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.banner strong{color:var(--gold)}
+.disclaimer{font-size:12.5px;color:var(--ink-2);border-left:3px solid var(--warn);padding:6px 10px;background:var(--surface-2);border-radius:0 6px 6px 0}
+
+.tbl{overflow-x:auto;margin:0 -16px;padding:0 16px}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);font-weight:600;text-align:left;padding:8px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+th.n,td.n{text-align:right}
+tr:last-child td{border-bottom:0}
+.tk{font-family:var(--f-mono);font-weight:600;letter-spacing:.02em}
+tfoot td{font-weight:600;border-top:2px solid var(--line)}
+
+.pill{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.pill.good{background:color-mix(in srgb,var(--up) 16%,transparent);color:var(--up)}
+.pill.mid{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+.pill.bad{background:color-mix(in srgb,var(--down) 14%,transparent);color:var(--down)}
+.pill.na{background:var(--surface-2);color:var(--ink-3)}
+
+.bars{display:flex;flex-direction:column;gap:8px}
+.bar{display:grid;grid-template-columns:72px minmax(0,1fr) 64px;gap:10px;align-items:center;font-size:13px}
+.bar .track{height:10px;background:var(--surface-2);border-radius:999px;position:relative;overflow:hidden}
+.bar .fill{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#6a4cf0,#9c84ff);border-radius:999px}
+.bar .meta{position:absolute;top:-2px;bottom:-2px;width:2px;background:#fff}
+
+.chart svg{width:100%;height:auto;display:block}
+.chart text{fill:var(--ink-3);font-family:var(--f-mono);font-size:10px}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.chart .b{fill:var(--gold)}
+.chart .b.cur{fill:var(--accent)}
+.chart .lbl{fill:var(--ink-2)}
+
+form.f{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;align-items:end}
+label.fld{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--ink-2);min-width:0}
+input,select{background:#121829;border:1px solid var(--line);border-radius:9px;padding:9px 11px;min-width:0;width:100%}
+input[type=date]::-webkit-calendar-picker-indicator,input[type=month]::-webkit-calendar-picker-indicator{filter:invert(.8)}
+input:focus{border-color:var(--accent)}
+.btn{background:linear-gradient(135deg,#8b6dff,#6a4cf0);color:var(--accent-ink);border:0;border-radius:9px;padding:9px 16px;font-weight:500;cursor:pointer;white-space:nowrap;box-shadow:0 4px 14px rgba(124,92,255,.35)}
+.btn.ghost{background:transparent;color:var(--ink-2);border:1px solid var(--line);box-shadow:none}
+.btn.small{padding:4px 10px;font-size:12.5px}
+.btn.danger{background:transparent;color:var(--down);border:1px solid color-mix(in srgb,var(--down) 45%,transparent);box-shadow:none}
+.linkbtn{background:none;border:0;color:var(--accent);cursor:pointer;padding:0;font-weight:600}
+.hint{font-size:12px;color:var(--ink-3);margin-top:8px}
+.msg{font-size:13px;margin-top:8px;min-height:1.2em}
+.msg.err{color:var(--down)} .msg.ok{color:var(--up)}
+
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+.seg button{border:0;background:transparent;padding:6px 10px;font-size:13px;cursor:pointer;color:var(--ink-2)}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);color:var(--ink);font-weight:600}
+
+.sugg{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+.sugg .row{display:flex;justify-content:space-between;gap:10px;padding:10px 12px;background:var(--surface-2);border-radius:8px;flex-wrap:wrap}
+.empty{color:var(--ink-3);font-size:14px;padding:12px 0}
+details.help{font-size:13px;color:var(--ink-2)}
+details.help summary{cursor:pointer;color:var(--ink);font-weight:600}
+details.help ul{margin:8px 0 0;padding-left:18px}
+@media (prefers-reduced-motion:no-preference){.fill{transition:width .4s ease}}
+/* ---------- Visual futurista: rosca, legenda e status ---------- */
+.donutwrap{display:flex;align-items:center;gap:20px;flex-wrap:wrap;margin-bottom:14px}
+.donut{width:150px;height:150px;flex:none;filter:drop-shadow(0 6px 18px rgba(0,0,0,.35))}
+.donut text{fill:var(--ink);font-family:var(--f-mono);font-weight:600}
+.donut .dl{fill:var(--ink-3);font-family:var(--f-body);font-weight:400;font-size:9px}
+.legend{display:flex;flex-direction:column;gap:6px;font-size:13px;min-width:0;flex:1}
+.legend span{display:flex;align-items:center;gap:8px;min-width:0}
+.legend i{width:11px;height:11px;border-radius:50%;flex:none;box-shadow:0 0 8px currentColor}
+.legend b{font-weight:500;margin-left:auto;font-family:var(--f-mono);font-size:12px;color:var(--ink-2)}
+.st{display:inline-block;min-width:84px;text-align:center;padding:4px 10px;border-radius:6px;font-size:12px;font-weight:600;color:#10162a}
+.st.ok{background:var(--up)} .st.wait{background:var(--gold)} .st.late{background:var(--down);color:#fff}
+.kpi .v,.ckpi .v{letter-spacing:-.01em}
+.ckpi{border:1px solid var(--line);background:var(--surface-2)}
+.pill.good,.pill.mid,.pill.bad{border-radius:6px}
+tbody tr:hover td{background:rgba(255,255,255,.02)}
+
+/* ---------- Celular ---------- */
+nav.tabs .ts{display:none}
+@media (max-width:640px){
+  body{padding-bottom:calc(64px + env(safe-area-inset-bottom,0px))}
+  nav.tabs{background:rgba(20,26,46,.94);position:fixed;top:auto;bottom:0;left:0;right:0;margin:0;border-top:1px solid var(--line);border-bottom:0;padding-bottom:env(safe-area-inset-bottom,0px);box-shadow:0 -4px 16px rgba(0,0,0,.06)}
+  nav.tabs .wrap{display:grid;grid-template-columns:repeat(9,minmax(0,1fr));gap:0;padding:0 2px;overflow:visible}
+  nav.tabs button{padding:14px 0 12px;font-size:10px;letter-spacing:-.01em;border-bottom:0;border-top:2px solid transparent;min-height:52px;overflow:hidden;text-overflow:ellipsis}
+  nav.tabs button[aria-selected="true"]{border-top-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+  nav.tabs .tl{display:none} nav.tabs .ts{display:inline}
+  nav.tabs button{font-size:9px!important;letter-spacing:-.04em;padding-left:0!important;padding-right:0!important;text-overflow:clip!important}
+  input,select,textarea{font-size:16px!important}
+  .btn{min-height:42px}
+  .btn.small{min-height:34px;padding-left:12px;padding-right:12px}
+  /* tabelas viram cartões */
+  .tbl.stack{overflow:visible;margin:0;padding:0}
+  .tbl.stack table,.tbl.stack tbody,.tbl.stack tfoot,.tbl.stack tr,.tbl.stack td{display:block;width:100%}
+  .tbl.stack thead{display:none}
+  .tbl.stack td[style]{width:100%!important}
+  .ckpi .v{font-size:clamp(12px,3.6vw,20px)}
+  .tbl.stack tr{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:14px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin-bottom:10px;background:var(--surface)}
+  .tbl.stack tfoot tr{background:var(--surface-2)}
+  .tbl.stack td{display:flex;flex-direction:column;gap:0;border:0;padding:4px 0;white-space:normal;text-align:left!important;min-width:0!important;overflow-wrap:anywhere}
+  .tbl.stack td[data-label]::before{content:attr(data-label);color:var(--ink-3);font-size:11px;text-transform:uppercase;letter-spacing:.04em;font-weight:400;font-family:var(--f-body)}
+  .tbl.stack td:first-child{grid-column:1/-1;flex-direction:row;flex-wrap:wrap;align-items:center;gap:6px;font-size:15px;padding-bottom:6px;border-bottom:1px solid var(--line);margin-bottom:4px}
+  .tbl.stack td:has(> .btn:only-child),.tbl.stack td:has(> .acts){grid-column:1/-1;flex-direction:row;justify-content:flex-end}
+  #tblPos td:nth-child(6),#tblPos td:nth-child(9),#tblPos td:nth-child(12){display:none}
+  #tblContas tbody tr{grid-template-columns:auto minmax(0,1fr) auto;align-items:center}
+  #tblContas td{border:0!important;margin:0!important;padding:4px 0!important}
+  #tblContas td::before{display:none!important}
+  #tblContas td:first-child{grid-column:auto}
+  #tblContas td:nth-child(4){font-family:var(--f-mono);font-weight:600;text-align:right!important;align-items:flex-end}
+  #tblContas td:nth-child(5){grid-column:1/-1;flex-direction:row;justify-content:flex-end}
+  #tblContas tfoot tr{grid-template-columns:minmax(0,1fr) auto}
+  #tblContas tfoot td:nth-child(3){display:none}
+  .tbl.stack td:first-child::before{display:none}
+  .tbl.stack td:empty{display:none}
+  .tbl.stack td.empty{display:block;text-align:center!important;border:0}
+  .tbl.stack tr:has(td.empty){border-style:dashed}
+  .tbl.stack .itens{width:100%;text-align:left}
+  #tblContas tbody td:nth-child(3){display:flex;flex-direction:row;align-items:center;gap:8px;grid-column:2/-1;grid-row:2;padding-top:0!important}
+  #tblContas tbody td:nth-child(5){grid-row:3}
+  .st{padding:2px 10px;font-size:12px}
+  /* barras: nome e valor em cima, barra inteira embaixo */
+  .bar{grid-template-columns:minmax(0,1fr) auto!important;row-gap:5px;column-gap:10px}
+  .bar .track{grid-column:1/-1;grid-row:2}
+  .donutwrap{flex-direction:column;align-items:stretch}
+  .donutwrap svg{align-self:center}
+  /* KPIs sem cortar o valor */
+  .kpi{padding:12px}
+  .kpi .v{white-space:normal;overflow:visible;text-overflow:clip;font-size:clamp(14px,4.6vw,20px);letter-spacing:-.03em;overflow-wrap:anywhere}
+  .kpi .s{font-size:11px}
+  .hdr-r{width:100%;justify-content:space-between}
+  /* fatura compacta: descrição e valor em cima, detalhes embaixo */
+  #tblFat tbody tr{display:flex;flex-wrap:wrap;align-items:center;column-gap:10px;row-gap:2px;padding:10px 12px}
+  #tblFat tbody td{width:auto;padding:0!important;border:0!important;margin:0!important;display:block}
+  #tblFat tbody td::before{display:none!important}
+  #tblFat tbody td:nth-child(2){order:1;flex:1 1 55%;font-size:14px;font-weight:500;min-width:0!important}
+  #tblFat tbody td:nth-child(6){order:2;font-family:var(--f-mono);font-weight:600;white-space:nowrap}
+  #tblFat tbody td:nth-child(1),#tblFat tbody td:nth-child(3),#tblFat tbody td:nth-child(4),#tblFat tbody td:nth-child(5){order:3;font-size:12px;color:var(--ink-3)}
+  #tblFat tbody td:nth-child(7){order:4;flex-basis:100%;display:flex;justify-content:flex-end;margin-top:4px!important}
+  #tblFat tbody tr.morerow td,#tblFat tbody td.empty{flex-basis:100%;height:auto}
+  .fatnav{width:100%;justify-content:space-between}
+}
+
+</style>
+<style>
+html,body{margin:0;background:var(--bg)}
+#loginScr{z-index:1001}
+#loginScr input{font-size:16px!important;letter-spacing:0!important;text-align:left!important;font-family:var(--f-body)!important}
+</style>
+</head>
+<body class="locked">
+<div id="loginScr" class="lock" role="dialog" aria-modal="true" aria-label="Entrar"><form class="lockbox" id="loginBox" autocomplete="on" novalidate><p class="sub">Carregando…</p></form></div>
+<div id="lockScr" class="lock" hidden role="dialog" aria-modal="true" aria-labelledby="lockTit">
+  <form class="lockbox" id="lockForm" autocomplete="off">
+    <div class="lockico" aria-hidden="true"><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
+    <h2 id="lockTit">Controle Financeiro</h2>
+    <p class="sub" id="lockSub">Carregando…</p>
+    <input id="lockPin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" placeholder="••••" aria-label="Senha de acesso" hidden>
+    <input id="lockPin2" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" placeholder="Repita a senha" aria-label="Repita a senha" hidden>
+    <button class="btn" id="lockBtn" type="submit" hidden>Entrar</button>
+    <button class="btn ghost" id="bioBtn" type="button" hidden>Entrar com rosto ou digital</button>
+    <div id="lockMenu" class="lockmenu" hidden><button class="btn ghost" type="button" id="bioSetup" hidden>Ativar entrada por rosto ou digital</button><button class="btn" type="button" data-lk="verify">Trocar senha</button><button class="btn danger" type="button" data-lk="remove">Remover senha</button></div>
+    <button class="btn ghost small" id="lockCancel" type="button" hidden>Cancelar</button>
+    <p class="msg" id="lockMsg"></p>
+  </form>
+</div>
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <div>
+        <h1>Controle Financeiro</h1>
+        <small>Investimentos, proventos, cartões e contas a pagar</small>
+      </div>
+      <div class="hdr-r"><button class="btn ghost small" id="pinBtn" type="button" title="Senha de acesso ao site">Criar senha</button><button class="btn ghost small" id="lockNow" type="button" hidden>Bloquear</button><button class="btn ghost small" id="privBtn" type="button" aria-pressed="false" title="Esconder os valores da tela">Ocultar valores</button><div class="sync"><span class="dot" id="syncDot"></span><span id="syncTxt">Conectando…</span></div></div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+  </div>
+</header>
+
+<nav class="tabs" aria-label="Seções">
+  <div class="wrap" role="tablist">
+    <button role="tab" data-tab="resumo" aria-selected="true"><span class="tl">Resumo</span><span class="ts">Resumo</span></button>
+    <button role="tab" data-tab="carteira" aria-selected="false"><span class="tl">Carteira</span><span class="ts">Carteira</span></button>
+    <button role="tab" data-tab="dividendos" aria-selected="false"><span class="tl">Dividendos</span><span class="ts">Renda</span></button>
+    <button role="tab" data-tab="aporte" aria-selected="false"><span class="tl">Onde aportar</span><span class="ts">Aportar</span></button>
+    <button role="tab" data-tab="lancar" aria-selected="false"><span class="tl">Lançamentos</span><span class="ts">Lançar</span></button>
+    <button role="tab" data-tab="cartoes" aria-selected="false"><span class="tl">Cartões</span><span class="ts">Cartões</span></button>
+    <button role="tab" data-tab="contas" aria-selected="false"><span class="tl">Contas a pagar</span><span class="ts">Contas</span></button>
+    <button role="tab" data-tab="chacara" aria-selected="false"><span class="tl">Chácara</span><span class="ts">Chácara</span></button>
+    <button role="tab" data-tab="veiculos" aria-selected="false"><span class="tl">Veículos</span><span class="ts">Veículos</span></button>
+      </div>
+</nav>
+
+<main class="wrap">
+  <div id="vencBanner" class="vbanner" role="status" hidden></div>
+  <div id="demoBanner" class="banner" hidden style="margin-bottom:20px">
+    <span><strong>Dados de exemplo.</strong> Nada disso é seu ainda. Cadastre seu primeiro investimento em Lançamentos e o exemplo some.</span>
+    <button class="btn small" data-goto="lancar">Cadastrar investimento</button>
+  </div>
+
+  <!-- RESUMO -->
+  <section class="panel" data-panel="resumo">
+    <div class="grid2">
+      <div class="card">
+        <h2>Proventos por mês</h2>
+        <p class="sub">Últimos 12 meses, valores recebidos</p>
+        <div class="chart" id="chartMes"></div>
+      </div>
+      <div class="card">
+        <h2>Por modalidade</h2>
+        <p class="sub">Quanto do patrimônio está em cada tipo de investimento</p>
+        <div class="bars" id="modBars"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Peso na carteira</h2>
+      <p class="sub">Barra = peso atual · traço = sua meta</p>
+      <div class="bars" id="pesoBars"></div>
+    </div>
+    <div class="card">
+      <div class="headrow">
+        <div><h2>Melhores para aportar agora</h2><p class="sub">Pela pontuação da aba Onde aportar</p></div>
+        <button class="btn ghost small" data-goto="aporte">Ver ranking completo</button>
+      </div>
+      <div id="topRank"></div>
+    </div>
+  </section>
+
+  <!-- CARTEIRA -->
+  <section class="panel" data-panel="carteira" hidden>
+    <div id="pendBanner" class="banner" hidden></div>
+    <div class="seg" id="bancoSeg" style="align-self:flex-start;flex-wrap:wrap" aria-label="Banco"></div>
+    <div class="seg" id="clsSeg" style="align-self:flex-start;flex-wrap:wrap"></div>
+    <div class="card" id="cardRV">
+      <h2>Renda variável</h2>
+      <p class="sub">Ações, FIIs, ETFs, BDRs e cripto: quanto você pagou (preço médio) contra a cotação de hoje, e quanto cada um já rendeu somando os proventos</p>
+      <div class="tbl"><table id="tblPos"></table></div>
+      <p class="hint">Valorização = (cotação − preço médio) × quantidade. Retorno total = valorização + todos os proventos recebidos do ativo.</p>
+    </div>
+    <div class="card" id="cardRF">
+      <h2>Renda fixa, fundos e outros</h2>
+      <p class="sub">CDB, LCI/LCA, Tesouro Direto, CRI/CRA, debêntures, poupança, fundos e previdência: valor aplicado contra o saldo de hoje</p>
+      <div class="tbl"><table id="tblRF"></table></div>
+      <p class="hint">Atualize o saldo pelo extrato do banco ou corretora clicando em "atualizar". Rendimento = saldo hoje − valor aplicado (sem descontar IR).</p>
+    </div>
+  </section>
+
+  <!-- DIVIDENDOS -->
+  <section class="panel" data-panel="dividendos" hidden>
+    <div class="grid2">
+      <div class="card">
+        <div class="headrow">
+          <div><h2>Por mês</h2><p class="sub">Dividendos, JCP, rendimentos de FII e juros/cupons que caíram na conta</p></div>
+          <select id="anoSel" aria-label="Ano" style="width:auto"></select>
+        </div>
+        <div class="tbl"><table id="tblMes"></table></div>
+      </div>
+      <div class="card">
+        <h2>Por ativo</h2>
+        <p class="sub">Yield on cost = proventos de 12 meses ÷ valor investido</p>
+        <div class="tbl"><table id="tblDivAtivo"></table></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- APORTE -->
+  <section class="panel" data-panel="aporte" hidden>
+    <p class="disclaimer">Isto não é recomendação de investimento. Os números saem dos dados que você digitou e de fórmulas clássicas (Bazin e Graham). Confira os fundamentos e decida por conta própria.</p>
+    <div class="card">
+      <div class="headrow">
+        <div><h2>Ranking de aporte</h2><p class="sub">Ações, FIIs, BDRs e ETFs, incluindo os da lista de observação que você ainda não tem. Renda fixa e cripto ficam de fora porque essas fórmulas não se aplicam a elas.</p></div>
+        <label class="fld" style="flex-direction:row;align-items:center;gap:8px">Taxa Bazin
+          <input id="taxaBazin" type="number" step="0.5" min="1" max="20" style="width:72px" inputmode="decimal"> %</label>
+      </div>
+      <div class="tbl"><table id="tblRank"></table></div>
+      <details class="help" style="margin-top:12px">
+        <summary>Como a pontuação é calculada</summary>
+        <ul>
+          <li><b>Preço-teto Bazin</b> = dividendos por ação dos últimos 12 meses ÷ taxa desejada (padrão 6%).</li>
+          <li><b>Preço justo Graham</b> = √(22,5 × LPA × VPA). Só para ações, e só com lucro e patrimônio positivos.</li>
+          <li><b>FIIs</b> não usam Graham nem P/L. No lugar entra o <b>P/VP</b>: cotação ÷ valor patrimonial por cota. P/VP 0,90 ou menos vale 25 pontos, 1,15 ou mais vale 0.</li>
+          <li><b>Pontos</b>: até 35 pela margem até o teto Bazin, até 25 pela margem até Graham (ou pelo P/VP, nos FIIs), até 20 pelo dividend yield (10% ou mais vale 20) e até 20 se o ativo está abaixo da sua meta de peso. P/L negativo (prejuízo) tira 20.</li>
+          <li>Acima de 60 aparece como <span class="pill good">Atrativo</span>, de 35 a 60 como <span class="pill mid">Neutro</span>, abaixo de 35 como <span class="pill bad">Caro</span>.</li>
+        </ul>
+      </details>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h2>Simular aporte</h2>
+        <p class="sub">Distribui o valor entre os melhores colocados, priorizando quem está abaixo da meta</p>
+        <form class="f" id="fSim">
+          <label class="fld">Quanto vai investir (R$)<input id="simValor" type="number" min="0" step="50" inputmode="decimal" placeholder="1000"></label>
+          <button class="btn" type="submit">Simular</button>
+        </form>
+        <div id="simOut" class="sugg"></div>
+      </div>
+      <div class="card">
+        <h2>Atualizar ativo</h2>
+        <p class="sub">Cotação e fundamentos (B3, Status Invest ou home broker) ou o saldo atual da renda fixa (extrato)</p>
+        <form class="f" id="fInd">
+          <label class="fld">Modalidade<select id="iCls"></select></label>
+          <label class="fld">Ticker ou nome<input id="iTk" required placeholder="ITSA4" autocomplete="off" list="ativosList"></label>
+          <label class="fld" data-only="cot">Cotação (R$)<input id="iCot" type="number" step="any" min="0" inputmode="decimal"></label>
+          <label class="fld" data-only="cot">Preço médio (posição importada)<input id="iPm" type="number" step="any" min="0" inputmode="decimal"></label>
+          <label class="fld">Banco ou corretora<input id="iCorr" placeholder="Nubank" autocomplete="off"></label>
+          <label class="fld" data-only="fund">LPA (lucro/ação)<input id="iLpa" type="number" step="0.01" inputmode="decimal"></label>
+          <label class="fld" data-only="fund fiivpa">VPA (patrim./ação ou cota)<input id="iVpa" type="number" step="0.01" inputmode="decimal"></label>
+          <label class="fld" data-only="fund fiivpa">Proventos/ação 12m<input id="iDpa" type="number" step="0.01" min="0" inputmode="decimal"></label>
+          <label class="fld" data-only="val">Saldo atual (R$)<input id="iSaldo" type="number" step="0.01" min="0" inputmode="decimal"></label>
+          <label class="fld" data-only="rf">Emissor<input id="iEmi" placeholder="Banco Inter" autocomplete="off"></label>
+          <label class="fld" data-only="rf">Indexador<select id="iIdx"><option value="">—</option><option>CDI</option><option>IPCA+</option><option>Prefixado</option><option>Selic</option><option>Outro</option></select></label>
+          <label class="fld" data-only="rf">Taxa<input id="iTaxa" placeholder="110% do CDI" autocomplete="off"></label>
+          <label class="fld" data-only="rf">Vencimento<input id="iVenc" type="date"></label>
+          <label class="fld">Meta de peso (%)<input id="iMeta" type="number" step="1" min="0" max="100" inputmode="decimal"></label>
+          <label class="fld">Setor ou nota<input id="iSetor" placeholder="Bancos" autocomplete="off"></label>
+          <button class="btn" type="submit">Salvar</button>
+        </form>
+        <div class="msg" id="mInd"></div>
+        <p class="hint">Clique num ativo do ranking ou da carteira para editar. Um ticker novo aqui entra na lista de observação. Final 11 vira FII e final 34 vira BDR por padrão; units como TAEE11 e ETFs como BOVA11 marque na modalidade certa.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- LANÇAMENTOS -->
+  <section class="panel" data-panel="lancar" hidden>
+    <div class="grid2">
+      <div class="card">
+        <h2>Novo investimento, compra ou venda</h2>
+        <p class="sub">Uma linha por nota de corretagem ou aplicação</p>
+        <form class="f" id="fOp">
+          <label class="fld">Modalidade<select id="oMod"></select></label>
+          <label class="fld">Operação<select id="oTipo"><option value="compra">Compra</option><option value="venda">Venda</option></select></label>
+          <label class="fld"><span id="oTkLbl">Ticker</span><input id="oTk" required placeholder="PETR4" autocomplete="off" list="ativosList"></label>
+          <label class="fld">Data<input id="oData" type="date" required></label>
+          <label class="fld" data-only="cot">Quantidade<input id="oQtd" type="number" min="0" step="any" inputmode="decimal"></label>
+          <label class="fld" data-only="cot">Preço unitário (R$)<input id="oPreco" type="number" min="0" step="any" inputmode="decimal"></label>
+          <label class="fld" data-only="cot">Taxas (R$)<input id="oTaxa" type="number" min="0" step="0.01" inputmode="decimal" placeholder="0,00"></label>
+          <label class="fld" data-only="val">Valor (R$)<input id="oValor" type="number" min="0" step="0.01" inputmode="decimal"></label>
+          <label class="fld" data-only="rf">Emissor<input id="oEmi" placeholder="Banco Inter" autocomplete="off"></label>
+          <label class="fld" data-only="rf">Indexador<select id="oIdx"><option value="">—</option><option>CDI</option><option>IPCA+</option><option>Prefixado</option><option>Selic</option><option>Outro</option></select></label>
+          <label class="fld" data-only="rf">Taxa<input id="oTxt" placeholder="110% do CDI" autocomplete="off"></label>
+          <label class="fld" data-only="rf">Vencimento<input id="oVenc" type="date"></label>
+          <button class="btn" type="submit">Lançar</button>
+        </form>
+        <div class="msg" id="mOp"></div>
+        <p class="hint" id="oHint"></p>
+      </div>
+      <div class="card">
+        <h2>Provento recebido</h2>
+        <p class="sub">Valor total que caiu na conta</p>
+        <form class="f" id="fDiv">
+          <label class="fld">Ativo<input id="dTk" required placeholder="TAEE11" autocomplete="off" list="ativosList"></label>
+          <label class="fld">Tipo<select id="dTipo"><option>Dividendo</option><option>JCP</option><option>Rendimento (FII)</option><option>Juros/cupom</option><option>Outro</option></select></label>
+          <label class="fld">Data do pagamento<input id="dData" type="date" required></label>
+          <label class="fld">Valor total (R$)<input id="dValor" type="number" min="0" step="0.01" required inputmode="decimal"></label>
+          <button class="btn" type="submit">Lançar</button>
+        </form>
+        <div class="msg" id="mDiv"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="headrow">
+        <div><h2>Histórico</h2><p class="sub">Mais recentes primeiro</p></div>
+        <div class="seg" id="histSeg"><button aria-pressed="true" data-h="ops">Compras, vendas e aplicações</button><button aria-pressed="false" data-h="divs">Proventos</button></div>
+      </div>
+      <div class="tbl"><table id="tblHist"></table></div>
+    </div>
+  </section>
+  <!-- CARTÕES -->
+  <section class="panel" data-panel="cartoes" hidden>
+    <div class="card">
+      <div class="headrow">
+        <div><h2>Fatura</h2><p class="sub">Gastos que caem na fatura do mês escolhido, já com as parcelas distribuídas</p></div>
+        <div class="fatnav"><button class="btn ghost small" id="fatPrev" aria-label="Mês anterior">‹</button><span class="mes" id="fatMes"></span><button class="btn ghost small" id="fatNext" aria-label="Próximo mês">›</button></div>
+      </div>
+      <div class="ckpis" id="cKpis"></div>
+      <div class="headrow" style="margin-top:16px">
+        <div class="seg" id="cartSeg" style="flex-wrap:wrap"></div>
+      </div>
+      <div class="tbl" style="margin-top:8px"><table id="tblFat"></table></div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h2>Por categoria</h2>
+        <p class="sub">Onde foi o dinheiro nesta fatura</p>
+        <div class="bars" id="catBars"></div>
+      </div>
+      <div class="card">
+        <h2>Próximas faturas</h2>
+        <p class="sub">Parcelas que já estão comprometidas</p>
+        <div class="tbl"><table id="tblProx"></table></div>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h2>Novo gasto</h2>
+        <p class="sub">Para compra parcelada, informe o valor total e o número de parcelas</p>
+        <form class="f" id="fGasto">
+          <label class="fld">Cartão<select id="gCartao" required></select></label>
+          <label class="fld">Data da compra<input id="gData" type="date" required></label>
+          <label class="fld wide">Descrição<input id="gDesc" required placeholder="Mercado Extra" autocomplete="off"></label>
+          <label class="fld">Categoria<select id="gCat"></select></label>
+          <label class="fld">Valor total (R$)<input id="gValor" type="number" min="0" step="0.01" required inputmode="decimal"></label>
+          <label class="fld">Parcelas<input id="gParc" type="number" min="1" max="48" step="1" value="1" inputmode="numeric"></label>
+          <button class="btn" type="submit">Lançar gasto</button>
+        </form>
+        <div class="msg" id="mGasto"></div>
+      </div>
+      <div class="card">
+        <h2>Meus cartões</h2>
+        <p class="sub">O dia de fechamento define em qual fatura cada compra cai</p>
+        <div class="cardchips" id="cardList"></div>
+        <form class="f" id="fCartao" style="margin-top:14px">
+          <label class="fld wide">Nome do cartão<input id="cNome" required placeholder="Nubank Roxinho" autocomplete="off"></label>
+          <label class="fld">Dia do fechamento<input id="cFech" type="number" min="1" max="31" required inputmode="numeric" placeholder="3"></label>
+          <label class="fld">Dia do vencimento<input id="cVenc" type="number" min="1" max="31" required inputmode="numeric" placeholder="10"></label>
+          <label class="fld">Limite (R$)<input id="cLim" type="number" min="0" step="0.01" inputmode="decimal"></label>
+          <button class="btn" type="submit">Adicionar cartão</button>
+        </form>
+        <div class="msg" id="mCartao"></div>
+      </div>
+    </div>
+  </section>
+  <!-- CONTAS A PAGAR -->
+  <section class="panel" data-panel="contas" hidden>
+    <div class="card">
+      <div class="headrow">
+        <div><h2>Contas do mês</h2><p class="sub">Marque cada conta quando pagar. Faturas lançadas na aba Cartões entram aqui sozinhas.</p></div>
+        <div class="fatnav"><button class="btn ghost small" id="ctPrev" aria-label="Mês anterior">‹</button><span class="mes" id="ctMes"></span><button class="btn ghost small" id="ctNext" aria-label="Próximo mês">›</button></div>
+      </div>
+      <div class="ckpis" id="ctKpis"></div>
+      <div class="tbl" style="margin-top:14px"><table id="tblContas"></table></div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h2>Próximos 12 meses</h2>
+        <p class="sub">Quanto já está comprometido em cada mês</p>
+        <div class="bars" id="ctBars"></div>
+      </div>
+      <div class="card">
+        <h2>Receitas do mês</h2>
+        <p class="sub">Salários, leite, extras e o que mais entrar</p>
+        <div class="tbl"><table id="tblRec"></table></div>
+        <form class="f" id="fRec" style="margin-top:14px">
+          <label class="fld wide">Fonte<input id="rFonte" required placeholder="Salário Betel" autocomplete="off" list="fontesList"></label>
+          <label class="fld">Valor (R$)<input id="rValor" type="number" min="0" step="0.01" required inputmode="decimal"></label>
+          <label class="fld">Repetir por (meses)<input id="rRep" type="number" min="1" max="60" step="1" value="1" inputmode="numeric"></label>
+          <button class="btn" type="submit">Lançar receita</button>
+        </form>
+        <div class="msg" id="mRec"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Nova conta</h2>
+      <p class="sub">Para conta fixa ou parcelada, use "repetir por" e ela é criada em cada mês</p>
+      <form class="f" id="fConta">
+        <label class="fld">Mês<input id="ctM" type="month" required></label>
+        <label class="fld wide">Descrição<input id="ctDesc" required placeholder="Energia" autocomplete="off"></label>
+        <label class="fld">Categoria<select id="ctCat"></select></label>
+        <label class="fld">Valor (R$)<input id="ctValor" type="number" min="0" step="0.01" required inputmode="decimal"></label>
+        <label class="fld">Dia do vencimento<input id="ctDia" type="number" min="1" max="31" step="1" inputmode="numeric" placeholder="10"></label>
+        <label class="fld">Repetir por (meses)<input id="ctRep" type="number" min="1" max="60" step="1" value="1" inputmode="numeric"></label>
+        <label class="fld">Numerar parcelas<select id="ctParc"><option value="0">Não (conta fixa)</option><option value="1">Sim (1/N, 2/N…)</option></select></label>
+        <button class="btn" type="submit">Adicionar conta</button>
+      </form>
+      <div class="msg" id="mConta"></div>
+    </div>
+  </section>
+
+  <section class="panel" data-panel="chacara" hidden>
+    <div class="seg chseg" role="tablist" aria-label="Parte da chácara"><button type="button" data-chseg="main" aria-pressed="true">Leite e vendas</button><button type="button" data-chseg="fiado" aria-pressed="false">Fiado e clientes</button></div>
+    <div id="chMain">
+    <div class="card">
+      <div class="headrow">
+        <div><h2>Chácara Betel</h2><p class="sub">Leite, queijo, despesas e lucro do mês</p></div>
+        <div class="fatnav"><button class="btn ghost small" id="vdPrev" aria-label="Mês anterior">‹</button><span class="mes" id="vdMes"></span><button class="btn ghost small" id="vdNext" aria-label="Próximo mês">›</button></div>
+      </div>
+      <div class="ckpis ck4" id="vdKpis"></div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h2>Leite do mês</h2>
+        <p class="sub" id="leiteSub">Litros tirados por dia. Toque num dia para lançar ou corrigir.</p>
+        <div class="dias" id="leiteDias"></div>
+        <form class="f" id="fLeite" style="margin-top:14px">
+          <label class="fld">Dia<input id="lData" type="date" required></label>
+          <label class="fld">Litros<input id="lLitros" type="number" min="0" step="0.5" inputmode="decimal" placeholder="12"></label>
+          <label class="fld">Retirado para casa (L)<input id="lPegou" type="number" min="0" step="0.5" inputmode="decimal"></label>
+          <button class="btn" type="submit">Salvar dia</button>
+        </form>
+        <div class="msg" id="mLeite"></div>
+        <form class="f" id="fLeiteMes" style="margin-top:14px">
+          <label class="fld wide">Recebido pelo leite no mês (R$)<input id="lmRec" type="number" min="0" step="0.01" inputmode="decimal"></label>
+          <label class="fld">Faltou receber (R$)<input id="lmFalta" type="number" min="0" step="0.01" inputmode="decimal"></label>
+          <button class="btn ghost" type="submit">Salvar mês</button>
+        </form>
+        <div class="msg" id="mLeiteMes"></div>
+      </div>
+      <div class="card">
+        <h2>Despesas da chácara</h2>
+        <p class="sub">Ração, remédio, vacina e o que mais gastar no mês</p>
+        <div class="tbl"><table id="tblChG"></table></div>
+        <form class="f" id="fChG" style="margin-top:14px">
+          <label class="fld wide">Descrição<input id="cgDesc" required placeholder="Ração milk 24" autocomplete="off" list="cgList"></label>
+          <label class="fld">Valor (R$)<input id="cgValor" type="number" min="0" step="0.01" required inputmode="decimal"></label>
+          <button class="btn" type="submit">Lançar despesa</button>
+        </form>
+        <datalist id="cgList"></datalist>
+        <div class="msg" id="mChG"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Vendas de queijo e leite</h2>
+      <p class="sub">Vendas direto para clientes. Quem ainda não pagou fica em <button class="linkbtn" data-chseg="fiado">Fiado e clientes</button>.</p>
+      <div class="bars" id="vdProd"></div>
+      <div class="tbl" style="margin-top:14px"><table id="tblVendas"></table></div>
+    </div>
+    <div>
+      <div class="card">
+        <h2>Nova venda</h2>
+        <p class="sub">O total é quantidade × preço</p>
+        <form class="f" id="fVenda">
+          <label class="fld">Data<input id="vData" type="date" required></label>
+          <label class="fld">Produto<input id="vProd" required value="Queijo" list="prodList" autocomplete="off"></label>
+          <label class="fld">Quantidade<input id="vQtd" type="number" min="0" step="0.001" required inputmode="decimal"></label>
+          <label class="fld">Unidade<select id="vUn"><option value="kg">kg</option><option value="L">litro</option><option value="un">unidade</option></select></label>
+          <label class="fld">Preço por unidade (R$)<input id="vPreco" type="number" min="0" step="0.01" required inputmode="decimal"></label>
+          <label class="fld wide">Cliente<input id="vCli" placeholder="Nome do cliente" list="cliList" autocomplete="off"></label>
+          <label class="fld">Pagamento<select id="vPago"><option value="1">Recebido</option><option value="0">A receber (fiado)</option></select></label>
+          <button class="btn" type="submit">Lançar venda</button>
+        </form>
+        <p class="hint" id="vTotal"></p>
+        <div class="msg" id="mVenda"></div>
+        <datalist id="prodList"><option value="Queijo"><option value="Leite"></datalist><datalist id="cliList"></datalist>
+      </div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h2>Lucro por mês</h2>
+        <p class="sub">Recebido do leite + vendas recebidas − despesas, últimos 12 meses</p>
+        <div class="bars" id="vdBars"></div>
+      </div>
+      <div class="card">
+        <h2>Animais</h2>
+        <p class="sub">Vacas e as crias de cada uma</p>
+        <div id="animList"></div>
+        <form class="f" id="fCria" style="margin-top:14px">
+          <label class="fld">Animal<input id="crAnim" required list="animDl" autocomplete="off" placeholder="Nome da vaca"></label>
+          <label class="fld">Data da cria<input id="crData" type="date"></label>
+          <label class="fld">Gênero<select id="crGen"><option value="">Não sei</option><option>Fêmea</option><option>Macho</option></select></label>
+          <label class="fld">Nome do filhote<input id="crFil" autocomplete="off"></label>
+          <button class="btn" type="submit">Salvar</button>
+        </form>
+        <p class="hint">Para cadastrar só o animal, deixe a data em branco.</p>
+        <datalist id="animDl"></datalist>
+        <div class="msg" id="mCria"></div>
+      </div>
+    </div>
+    </div>
+    <div id="chFiado" hidden>
+      <div class="card fiado-card">
+        <h2>Fiado: clientes que ainda não pagaram</h2>
+        <p class="sub">Marque o dia, o valor e se foi leite ou queijo. Quando o cliente pagar, toque em "Pagou".</p>
+        <form class="f" id="fFiado">
+          <label class="fld wide">Cliente<input id="fiCli" required placeholder="Nome do cliente" list="cliList" autocomplete="off"></label>
+          <label class="fld">Dia<input id="fiData" type="date" required></label>
+          <label class="fld">Mercadoria<select id="fiProd"><option>Leite</option><option>Queijo</option></select></label>
+          <label class="fld">Valor (R$)<input id="fiValor" type="number" min="0" step="0.01" required inputmode="decimal"></label>
+          <button class="btn" type="submit">Lançar fiado</button>
+        </form>
+        <div class="msg" id="mFiado"></div>
+        <div id="fiadoTot" class="fitot"></div>
+        <div id="tblDeve"></div>
+      </div>
+      <div class="card">
+        <h2>Clientes</h2>
+        <p class="sub">Cadastre quem compra queijo e leite. Os nomes aparecem para escolher no fiado e nas vendas.</p>
+        <form class="f" id="fCli">
+          <label class="fld wide">Nome<input id="clNome" required autocomplete="off" placeholder="Dona Maria"></label>
+          <label class="fld">Telefone<input id="clTel" type="tel" inputmode="tel" autocomplete="off" placeholder="(91) 99999-9999"></label>
+          <label class="fld wide">Endereço ou referência<input id="clEnd" autocomplete="off"></label>
+          <label class="fld">Compra<select id="clProd"><option value="">Leite e queijo</option><option>Queijo</option><option>Leite</option></select></label>
+          <button class="btn" type="submit">Cadastrar</button>
+        </form>
+        <div class="msg" id="mCli"></div>
+        <div id="cliCards" style="margin-top:12px"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" data-panel="veiculos" hidden>
+    <div class="card">
+      <div class="headrow">
+        <div><h2>Licenciamento e IPVA</h2><p class="sub">O que cada veículo paga no ano. Marque quando pagar.</p></div>
+        <div class="fatnav"><button class="btn ghost small" id="vcPrev" aria-label="Ano anterior">‹</button><span class="mes" id="vcAno"></span><button class="btn ghost small" id="vcNext" aria-label="Próximo ano">›</button></div>
+      </div>
+      <div class="ckpis ck4" id="vcKpis"></div>
+      <div class="tbl" style="margin-top:14px"><table id="tblLic"></table></div>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h2>Lançar pagamento do ano</h2>
+        <p class="sub">Se o veículo já tiver lançamento no ano, ele é atualizado</p>
+        <form class="f" id="fLic">
+          <label class="fld wide">Veículo<select id="lcVeic" required></select></label>
+          <label class="fld">Ano<input id="lcAno" type="number" min="2000" max="2100" step="1" required inputmode="numeric"></label>
+          <label class="fld">Vencimento<input id="lcVenc" type="date"></label>
+          <label class="fld">Valor (R$)<input id="lcValor" type="number" min="0" step="0.01" required inputmode="decimal"></label>
+          <label class="fld">Situação<select id="lcPago"><option value="0">A pagar</option><option value="1">Pago</option></select></label>
+          <button class="btn" type="submit">Salvar</button>
+        </form>
+        <div class="msg" id="mLic"></div>
+      </div>
+      <div class="card">
+        <h2>Gasto por ano</h2>
+        <p class="sub">Soma de licenciamento e IPVA de todos os veículos</p>
+        <div class="bars" id="vcBars"></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Veículos</h2>
+      <p class="sub">Cadastre placa e RENAVAM. Toque em Editar para corrigir.</p>
+      <form class="f" id="fVeic">
+        <label class="fld wide">Veículo<input id="veNome" required autocomplete="off" placeholder="Strada"></label>
+        <label class="fld">Placa<input id="vePlaca" required autocomplete="off" placeholder="ABC1D23" maxlength="8" style="text-transform:uppercase"></label>
+        <label class="fld">RENAVAM<input id="veRen" autocomplete="off" inputmode="numeric" maxlength="11"></label>
+        <button class="btn" type="submit">Cadastrar</button>
+      </form>
+      <div class="msg" id="mVeic"></div>
+      <div class="tbl" style="margin-top:12px"><table id="tblVeic"></table></div>
+    </div>
+  </section>
+</main>
+<dialog id="edDlg" aria-labelledby="edTit">
+  <form method="dialog" id="edForm">
+    <h2 id="edTit">Editar</h2>
+    <p class="sub" id="edSub"></p>
+    <div class="f" id="edFields"></div>
+    <div class="msg" id="edMsg"></div>
+    <div class="edbtns"><button class="btn ghost" type="button" id="edCancel">Cancelar</button><button class="btn" type="submit" id="edSave">Salvar alterações</button></div>
+  </form>
+</dialog>
+<datalist id="ativosList"></datalist>
+<datalist id="fontesList"></datalist>
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+<script src="backend.js"></script>
+</body>
+</html>
