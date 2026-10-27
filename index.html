@@ -308,6 +308,49 @@ nav.tabs .ts{display:none}
 #tblUa .vd{display:block;margin-top:3px;width:max-content}
 @media (min-width:641px){#tblUa td:last-child{width:1%!important;white-space:nowrap}#tblUa td:first-child{max-width:300px}#tblUa td:nth-child(2),#tblUa td:nth-child(3){white-space:nowrap}}
 @media (max-width:640px){#tblUa .acts{grid-template-columns:repeat(2,minmax(0,1fr));width:100%}#tblUa .acts .btn{width:100%}}
+
+/* ---------- Glicemia ---------- */
+body.tab-glicemia #demoBanner,body.tab-glicemia #vencBanner{display:none!important}
+body.guest #demoBanner,body.guest #vencBanner,body.guest #kpis,body.guest #pinBtn,body.guest #lockNow,body.guest #privBtn,body.guest .sync{display:none!important}
+body.guest nav.tabs button:not([data-tab="glicemia"]){display:none!important}
+.glmetas{display:flex;flex-wrap:wrap;gap:8px}
+.glmeta{font-size:12.5px;border:1px solid var(--line);border-radius:999px;padding:3px 10px;color:var(--ink-2)}
+.glmeta b{color:var(--ink);font-family:var(--f-mono)}
+.gltab{overflow-x:auto;border:1px solid var(--line);border-radius:12px}
+.gltab table{min-width:640px;font-variant-numeric:tabular-nums}
+.gltab th,.gltab td{text-align:center;padding:6px 4px;white-space:normal}
+.gltab th{line-height:1.25}
+.gltab .gday{position:sticky;left:0;background:var(--surface);text-align:left;padding-left:12px;border-right:1px solid var(--line);z-index:1}
+.gday b{font-family:var(--f-mono)} .gday span{display:block;font-size:11.5px;color:var(--ink-3)}
+.gcell{appearance:none;border:0;background:transparent;font:inherit;color:var(--ink-3);width:100%;min-height:44px;border-radius:8px;cursor:pointer;padding:2px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px}
+.gcell:hover{background:var(--accent-soft)}
+body.glro .gcell{cursor:default} body.glro .gcell:hover{background:transparent}
+.gval{display:inline-block;font-family:var(--f-mono);font-weight:600;font-size:14px;padding:1px 8px;border-radius:7px}
+.gval.ok{color:var(--up);background:color-mix(in srgb,var(--up) 14%,transparent)}
+.gval.hi{color:var(--down);background:color-mix(in srgb,var(--down) 16%,transparent)}
+.ghr{font-size:11px;color:var(--ink-3);font-family:var(--f-mono)}
+.gemp{color:var(--line);font-size:18px}
+.gdot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);margin-left:5px;vertical-align:middle}
+.glcards{display:none;flex-direction:column;gap:10px}
+.glcard{border:1px solid var(--line);border-radius:12px;padding:10px 10px 8px;background:var(--surface)}
+.glcard header{display:flex;align-items:baseline;gap:8px;padding:0 4px 6px}
+.glcard header b{font-family:var(--f-mono);font-size:16px} .glcard header span{color:var(--ink-3);font-size:13px}
+.glslots{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+.glslots .gcell{min-height:62px;background:var(--surface-2)}
+.glslots .glbl{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);line-height:1.15;text-align:center}
+.glcard .gnota{font-size:13px;color:var(--ink-2);margin:8px 4px 2px;border-left:3px solid var(--accent);padding-left:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+@media (max-width:640px){.gltab{display:none}.glcards{display:flex}}
+.glchart svg{display:block;width:100%;height:auto}
+.glchart text{fill:var(--ink-3);font-family:var(--f-mono);font-size:10px}
+.glleg{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-2);margin-bottom:6px}
+.glleg i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:6px}
+.globs article{border-left:3px solid var(--accent);padding:2px 0 2px 12px;margin-bottom:10px}
+.globs b{font-family:var(--f-mono);font-size:13px} .globs p{margin:2px 0 0;max-width:65ch;white-space:pre-wrap;color:var(--ink-2)}
+dialog#glDlg{border:1px solid var(--line);border-radius:14px;padding:20px;background:var(--surface);color:var(--ink);width:min(520px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto}
+dialog#glDlg::backdrop{background:rgba(0,0,0,.5)}
+#glForm textarea{background:#121829;border:1px solid var(--line);border-radius:9px;padding:9px 11px;width:100%;min-height:80px;font:inherit;color:inherit;resize:vertical}
+#glValor{font-family:var(--f-mono);font-size:20px;font-weight:600}
+@media (max-width:640px){dialog#glDlg{width:100vw;max-width:100vw;margin:auto 0 0;border-radius:16px 16px 0 0;max-height:92dvh;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}}
 </style>
 <style>
 html,body{margin:0;background:var(--bg)}
@@ -356,6 +399,7 @@ html,body{margin:0;background:var(--bg)}
     <button role="tab" data-tab="chacara" aria-selected="false"><span class="tl">Chácara</span><span class="ts">Chácara</span></button>
     <button role="tab" data-tab="veiculos" aria-selected="false"><span class="tl">Veículos</span><span class="ts">Veículos</span></button>
     <button role="tab" data-tab="luzagua" aria-selected="false"><span class="tl">Luz e água</span><span class="ts">Luz</span></button>
+    <button role="tab" data-tab="glicemia" aria-selected="false"><span class="tl">Glicemia</span><span class="ts">Glicemia</span></button>
       </div>
 </nav>
 
@@ -861,7 +905,54 @@ html,body{margin:0;background:var(--bg)}
       <div class="msg" id="mUc"></div>
     </div>
   </section>
+
+  <section class="panel" data-panel="glicemia" hidden>
+    <div class="card">
+      <div class="headrow">
+        <div><h2>Controle glicêmico</h2><p class="sub" id="glSub">Toque em qualquer medida para lançar ou corrigir.</p></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="glNova">+ Nova medida</button><button class="btn ghost" type="button" id="glPdf">Gerar PDF</button></div>
+      </div>
+      <div class="glmetas"><span class="glmeta" id="glModo" hidden style="border-color:var(--accent);color:var(--accent)">Somente leitura</span><span class="glmeta">Jejum até <b>95</b></span><span class="glmeta">Antes das refeições até <b>100</b></span><span class="glmeta">1h após até <b>140</b></span><span class="glmeta">2h após até <b>120</b></span></div>
+      <div class="msg" id="glMsg"></div>
+      <div class="ckpis" style="margin-top:6px">
+        <div class="ckpi"><div class="l">Média do jejum</div><div class="v" id="glMedia" style="font-family:var(--f-mono)">–</div><div class="s">mg/dL</div></div>
+        <div class="ckpi"><div class="l">Dentro da meta</div><div class="v" id="glDentro" style="font-family:var(--f-mono)">–</div><div class="s" id="glDentroS"></div></div>
+        <div class="ckpi"><div class="l">Acima da meta</div><div class="v" id="glAcima" style="font-family:var(--f-mono)">–</div><div class="s">medidas</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Evolução</h2>
+      <div class="glleg" style="margin-top:8px"><span><i style="background:var(--blue)"></i>Jejum (meta 95)</span><span><i style="background:var(--gold)"></i>Maior valor 1h após (meta 140)</span></div>
+      <div class="glchart" id="glChart"></div>
+    </div>
+    <div class="card">
+      <h2>Registros por dia</h2>
+      <p class="sub">Verde = dentro da meta · vermelho = acima</p>
+      <div class="gltab"><table><thead><tr id="glHead"></tr></thead><tbody id="glBody"></tbody></table></div>
+      <div class="glcards" id="glCards"></div>
+      <p class="empty" id="glVazio" hidden>Nenhuma medida ainda. Toque em “+ Nova medida” para lançar a primeira.</p>
+    </div>
+    <div class="card" id="glObsCard" hidden>
+      <h2>Observações</h2>
+      <div class="globs" id="glObs" style="margin-top:10px"></div>
+    </div>
+  </section>
 </main>
+<dialog id="glDlg" aria-labelledby="glTit">
+  <form id="glForm">
+    <h2 id="glTit" style="font-size:18px;margin-bottom:12px">Nova medida</h2>
+    <div class="f" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+      <label class="fld">Data<input type="date" id="glData" required></label>
+      <label class="fld">Momento<select id="glSlot"></select></label>
+      <label class="fld">Glicemia (mg/dL)<input type="number" id="glValor" inputmode="numeric" min="20" max="600" step="1" placeholder="92"></label>
+      <label class="fld">Horário<input type="time" id="glHora"></label>
+      <label class="fld wide">Observação do dia<textarea id="glObsIn" maxlength="1000" placeholder="Ex.: medi mais tarde, tomei suco às 15:34…"></textarea></label>
+    </div>
+    <p class="hint" id="glHint"></p>
+    <div class="msg" id="glFMsg"></div>
+    <div class="edbtns"><button class="btn danger" type="button" id="glApagar">Apagar medida</button><button class="btn ghost" type="button" id="glCancelar">Cancelar</button><button class="btn" type="submit" id="glSalvar">Salvar</button></div>
+  </form>
+</dialog>
 <dialog id="edDlg" aria-labelledby="edTit">
   <form method="dialog" id="edForm">
     <h2 id="edTit">Editar</h2>
@@ -873,6 +964,8 @@ html,body{margin:0;background:var(--bg)}
 </dialog>
 <datalist id="ativosList"></datalist>
 <datalist id="fontesList"></datalist>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="backend.js"></script>

@@ -105,6 +105,16 @@ async function boot(){
   try{ d = window.claude ? await window.claude.use('db') : null; }catch(e){ d=null; }
   if(d){
     db=d; mode='db';
+    // Quem não é dono nem editor só enxerga a aba Glicemia (as regras da base também bloqueiam as finanças para essa pessoa).
+    let guest=false;
+    try{ const u=await window.claude.use('user'); guest=!!u&&!(await u.canEdit()); }catch(e){ guest=false; }
+    if(guest){
+      document.body.classList.add('guest');
+      $('.brand h1').textContent='Diário Glicêmico'; $('.brand small').textContent='Controle de glicemia';
+      try{document.title='Diário Glicêmico';}catch(e){}
+      pinSet(null); go('glicemia'); glInit(db); return;
+    }
+    glInit(db);
     const sub=(col,key)=>db.collection(col).onSnapshot(snap=>{
       S[key]=snap.docs.map(x=>({id:x.id,...x.data()})); loaded[key]=true;
       setSync(true,'Salvo na nuvem'); render();
@@ -118,6 +128,7 @@ async function boot(){
     mode='local'; try{pinSet(JSON.parse(localStorage.getItem('carteira-pin')||'null'));}catch(e){pinSet(null);}
     try{const raw=localStorage.getItem(KEY); if(raw){const p=JSON.parse(raw); S={...S,...p}; S.cartoes=S.cartoes||[]; S.gastos=S.gastos||[]; S.contas=S.contas||[]; S.receitas=S.receitas||[]; S.vendas=S.vendas||[]; ['clientes','producao','leitemes','chgastos','animais','faturas','veiculos','licenc','ucs','ucmes','chitens'].forEach(k=>S[k]=S[k]||[]);}}catch(e){}
     setSync(false,'Salvo só neste navegador');
+    glInit(null);
     render();
   }
 }
@@ -1254,12 +1265,185 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-paybtn]');
   k.checked=!k.checked; k.dispatchEvent(new Event('change',{bubbles:true}));
 });
 
+/* ---------- Glicemia ----------
+   Fica na coleção "glicemia", a única que as regras da base liberam para quem não é dono/editor
+   (ver: Visualizador; lançar: Contribuidor). As finanças continuam só para o dono. */
+const GSLOTS=[
+  {k:'jejum',l:'Jejum',h:'Jejum',meta:95,pos:false},
+  {k:'cafe1h',l:'1h após café da manhã',h:'1h após café',meta:140,pos:true},
+  {k:'almocoAntes',l:'Antes do almoço',h:'Antes almoço',meta:100,pos:false},
+  {k:'almoco1h',l:'1h após almoço',h:'1h após almoço',meta:140,pos:true},
+  {k:'jantarAntes',l:'Antes do jantar',h:'Antes jantar',meta:100,pos:false},
+  {k:'jantar1h',l:'1h após jantar',h:'1h após jantar',meta:140,pos:true},
+];
+const GSEM=['dom','seg','ter','qua','qui','sex','sáb'];
+let G={}, gdb=null, gro=false;
+const gfmt=iso=>iso.slice(8,10)+'/'+iso.slice(5,7), gbr=iso=>iso.slice(8,10)+'/'+iso.slice(5,7)+'/'+iso.slice(0,4);
+const gwd=iso=>GSEM[new Date(iso+'T12:00:00').getDay()];
+const GID=/^\d{4}-\d{2}-\d{2}$/, GHR=/^([01]\d|2[0-3]):[0-5]\d$/;
+$('#glHead').innerHTML='<th class="gday">Dia</th>'+GSLOTS.map(s=>`<th>${s.h.replace(' ','<br>')}</th>`).join('');
+$('#glSlot').innerHTML=GSLOTS.map(s=>`<option value="${s.k}">${s.l}</option>`).join('');
+function gCell(id,s,label){const m=G[id][s.k];
+  const inner=m&&m.v!=null?`<span class="gval ${m.v>s.meta?'hi':'ok'}">${esc(m.v)}</span>${m.h?`<span class="ghr">${esc(m.h)}</span>`:''}`:'<span class="gemp">·</span>';
+  return `<button type="button" class="gcell" data-gid="${id}" data-gs="${s.k}" aria-label="${s.l} em ${gfmt(id)}">${label?`<span class="glbl">${s.h}</span>`:''}${inner}</button>`;}
+function glRender(){
+  const ids=Object.keys(G).filter(id=>GID.test(id)).sort(), rev=ids.slice().reverse();
+  $('#glVazio').hidden=!!ids.length;
+  $('#glBody').innerHTML=rev.map(id=>`<tr><td class="gday"><b>${gfmt(id)}</b><span>${gwd(id)}${G[id].obs?'<i class="gdot" title="Tem observação"></i>':''}</span></td>${GSLOTS.map(s=>`<td>${gCell(id,s)}</td>`).join('')}</tr>`).join('');
+  $('#glCards').innerHTML=rev.map(id=>`<article class="glcard"><header><b>${gfmt(id)}</b><span>${gwd(id)}</span></header><div class="glslots">${GSLOTS.map(s=>gCell(id,s,1)).join('')}</div>${G[id].obs?`<p class="gnota">${esc(G[id].obs)}</p>`:''}</article>`).join('');
+  let tot=0,dentro=0,acima=0,js=[];
+  ids.forEach(id=>GSLOTS.forEach(s=>{const m=G[id][s.k]; if(m&&m.v!=null){tot++; m.v>s.meta?acima++:dentro++; if(s.k==='jejum')js.push(+m.v);}}));
+  $('#glMedia').textContent=js.length?Math.round(js.reduce((a,b)=>a+b,0)/js.length):'–';
+  $('#glDentro').textContent=tot?Math.round(dentro/tot*100)+'%':'–'; $('#glDentroS').textContent=tot?dentro+' de '+tot+' medidas':'';
+  $('#glAcima').textContent=tot?acima:'–'; $('#glAcima').className='v'+(acima?' down':'');
+  const obs=rev.filter(id=>G[id].obs); $('#glObsCard').hidden=!obs.length;
+  $('#glObs').innerHTML=obs.map(id=>`<article><b>${gfmt(id)} · ${gwd(id)}</b><p>${esc(G[id].obs)}</p></article>`).join('');
+  glChart(ids);
+}
+function glChart(ids){
+  const box=$('#glChart'); if(!ids.length){box.innerHTML='<p class="empty">O gráfico aparece depois das primeiras medidas.</p>';return;}
+  const W=Math.max(300,Math.min(980,Math.round(box.clientWidth||640))),H=W<480?200:230,L=34,R=10,T=12,B=26;
+  const jej=ids.map(id=>G[id].jejum&&G[id].jejum.v!=null?+G[id].jejum.v:null);
+  const pos=ids.map(id=>{const v=GSLOTS.filter(s=>s.pos).map(s=>G[id][s.k]&&G[id][s.k].v).filter(v=>v!=null).map(Number);return v.length?Math.max(...v):null;});
+  const all=[...jej,...pos].filter(v=>v!=null); if(!all.length){box.innerHTML='';return;}
+  const lo=Math.min(60,Math.floor(Math.min(...all)/20)*20), hi=Math.max(160,Math.ceil(Math.max(...all)/20)*20);
+  const x=i=>ids.length===1?(L+W-R)/2:L+i*(W-L-R)/(ids.length-1), y=v=>T+(hi-v)*(H-T-B)/(hi-lo);
+  let g=''; for(let v=lo;v<=hi;v+=20) g+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L-6}" y="${y(v)+3}" text-anchor="end">${v}</text>`;
+  [[95,'var(--blue)'],[140,'var(--gold)']].forEach(([v,c])=>g+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="${c}" stroke-dasharray="4 4" opacity=".75"/>`);
+  const st=Math.ceil(ids.length/(W<480?6:10)); ids.forEach((id,i)=>{if(i%st===0||i===ids.length-1) g+=`<text x="${x(i)}" y="${H-8}" text-anchor="middle">${gfmt(id)}</text>`;});
+  const line=(a,c,meta)=>{let p='',pts='';a.forEach((v,i)=>{if(v==null)return;p+=(p?'L':'M')+x(i)+' '+y(v);pts+=`<circle cx="${x(i)}" cy="${y(v)}" r="${v>meta?4.5:3.2}" fill="${v>meta?'var(--down)':c}" stroke="var(--surface)" stroke-width="1.5"><title>${gfmt(ids[i])}: ${v} mg/dL</title></circle>`;});return `<path d="${p}" fill="none" stroke="${c}" stroke-width="2" stroke-linejoin="round"/>`+pts;};
+  box.innerHTML=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Jejum e pós-refeição por dia">${g}${line(pos,'var(--gold)',140)}${line(jej,'var(--blue)',95)}</svg>`;
+}
+let glRz; window.addEventListener('resize',()=>{clearTimeout(glRz);glRz=setTimeout(()=>{if(go.cur==='glicemia')glChart(Object.keys(G).filter(id=>GID.test(id)).sort());},150);});
+function glFill(){
+  const d=G[$('#glData').value]||{}, m=d[$('#glSlot').value];
+  $('#glValor').value=m&&m.v!=null?m.v:''; $('#glHora').value=m&&m.h||''; $('#glObsIn').value=d.obs||'';
+  $('#glTit').textContent=m?'Corrigir medida':'Nova medida'; $('#glApagar').hidden=!m; $('#glFMsg').textContent='';
+  const s=GSLOTS.find(s=>s.k===$('#glSlot').value); $('#glHint').textContent=`Meta para ${s.l.toLowerCase()}: até ${s.meta} mg/dL.`;
+}
+function glOpen(id,slot){ if(gro) return; $('#glData').value=id||today(); $('#glSlot').value=slot||'jejum'; glFill();
+  const dl=$('#glDlg'); if(dl.showModal) dl.showModal(); else dl.setAttribute('open',''); if(!matchMedia('(max-width:640px)').matches) setTimeout(()=>$('#glValor').focus(),30); }
+function glClose(){const dl=$('#glDlg'); if(dl.close) dl.close(); else dl.removeAttribute('open');}
+$('#glData').addEventListener('change',glFill); $('#glSlot').addEventListener('change',glFill);
+$('#glCancelar').addEventListener('click',glClose); $('#glDlg').addEventListener('click',e=>{if(e.target===$('#glDlg'))glClose();});
+$('#glNova').addEventListener('click',()=>glOpen(null,null));
+document.addEventListener('click',e=>{const b=e.target.closest('[data-gid]'); if(b) glOpen(b.dataset.gid,b.dataset.gs);});
+function glReadOnly(){ gro=true; document.body.classList.add('glro'); $('#glNova').hidden=true; $('#glModo').hidden=false; $('#glSub').textContent='Você pode consultar as medidas e gerar o PDF.'; }
+async function glSave(id,body){
+  if(!gdb) throw bad('sem_base');
+  gate('config',null); // mesmo limite de alterações por tempo do resto do site
+  const vazio=!GSLOTS.some(s=>body[s.k])&&!body.obs;
+  const ref=gdb.doc('glicemia/'+id);
+  if(vazio) await ref.delete(); else await ref.set(clean(body));
+}
+function glBody(id){
+  const o={data:id,obs:''}, d=G[id]||{};
+  GSLOTS.forEach(s=>{const m=d[s.k]; if(m&&m.v!=null) o[s.k]={v:+m.v,h:m.h||''};}); o.obs=d.obs||''; return o;
+}
+async function glTry(fn){
+  const m=$('#glFMsg'); $('#glSalvar').disabled=true;
+  try{ await fn(); glClose(); }
+  catch(err){ if(err&&err.code==='invalid_argument'){ glClose(); glReadOnly(); flash($('#glMsg'),'Seu acesso é só para ver. Peça ao dono para te dar permissão de lançar.'); }
+    else flash(m,err&&err.code==='sem_base'?'Os dados não estão disponíveis nesta visualização.':errTxt(err)); }
+  finally{ $('#glSalvar').disabled=false; }
+}
+$('#glForm').addEventListener('submit',e=>{e.preventDefault();
+  const id=$('#glData').value, k=$('#glSlot').value, raw=$('#glValor').value.trim(), h=$('#glHora').value, m=$('#glFMsg');
+  if(!GID.test(id)){flash(m,'Escolha a data.');return;}
+  const v=raw===''?null:Math.round(+raw); if(v!=null&&!(v>=20&&v<=600)){flash(m,'O valor precisa ficar entre 20 e 600 mg/dL.');return;}
+  if(h&&!GHR.test(h)){flash(m,'Horário inválido.');return;}
+  const b=glBody(id); if(v!=null) b[k]={v,h:h||''}; b.obs=$('#glObsIn').value.trim().slice(0,1000);
+  glTry(()=>glSave(id,b));
+});
+$('#glApagar').addEventListener('click',()=>{const id=$('#glData').value; if(!GID.test(id)) return; const b=glBody(id); delete b[$('#glSlot').value]; b.obs=$('#glObsIn').value.trim().slice(0,1000); glTry(()=>glSave(id,b));});
+function glInit(d){
+  gdb=d; if(!d){ $('#glVazio').hidden=false; return; }
+  d.collection('glicemia').onSnapshot(snap=>{const n={}; snap.docs.forEach(x=>{if(x.exists&&GID.test(x.id)) n[x.id]=x.data();}); G=n; glRender();},
+    ()=>flash($('#glMsg'),'A conexão com os dados caiu. Recarregue a página.'));
+}
+/* PDF de todos os resultados (jsPDF) */
+function glPDF(){
+  const ids=Object.keys(G).filter(id=>GID.test(id)).sort();
+  const {jsPDF}=window.jspdf; const doc=new jsPDF({unit:'mm',format:'a4'});
+  const PW=210,PH=297,M=14,CW=PW-2*M;
+  const RED=[192,61,28],GREEN=[37,120,74],INK=[22,33,44],MUT=[93,107,120],LINE=[221,227,233],TEAL=[13,110,106],PUR=[106,79,179];
+  let y=18; const ag=new Date(), p2=n=>String(n).padStart(2,'0');
+  const gerado=`${p2(ag.getDate())}/${p2(ag.getMonth()+1)}/${ag.getFullYear()} ${p2(ag.getHours())}:${p2(ag.getMinutes())}`;
+  const nova=()=>{doc.addPage();y=18;}, esp=h=>{if(y+h>PH-16)nova();};
+  doc.setFont('helvetica','bold');doc.setFontSize(19);doc.setTextColor(...INK);doc.text('Diário Glicêmico',M,y);
+  y+=7;doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(...MUT);
+  doc.text(`Período: ${gbr(ids[0])} a ${gbr(ids[ids.length-1])}  ·  ${ids.length} dias  ·  Gerado em ${gerado}`,M,y);
+  y+=5;doc.text('Metas (mg/dL): jejum até 95  ·  antes das refeições até 100  ·  1h após até 140  ·  2h após até 120',M,y);
+  let tot=0,dentro=0,acima=[],js=[];
+  ids.forEach(id=>GSLOTS.forEach(s=>{const m=G[id][s.k];if(m&&m.v!=null){tot++;if(m.v>s.meta)acima.push({id,s,m});else dentro++;if(s.k==='jejum')js.push(+m.v);}}));
+  y+=6; const bw=(CW-8)/3;
+  [['Média do jejum',js.length?Math.round(js.reduce((a,b)=>a+b,0)/js.length)+' mg/dL':'-'],['Dentro da meta',tot?`${Math.round(dentro/tot*100)}%  (${dentro} de ${tot})`:'-'],['Acima da meta',String(acima.length)]].forEach(([k,v],i)=>{const x=M+i*(bw+4);
+    doc.setDrawColor(...LINE);doc.setFillColor(247,249,250);doc.roundedRect(x,y,bw,16,2,2,'FD');doc.setFontSize(8);doc.setTextColor(...MUT);doc.text(k.toUpperCase(),x+4,y+5.5);
+    doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(...(i===2&&acima.length?RED:INK));doc.text(v,x+4,y+12.5);doc.setFont('helvetica','normal');});
+  y+=24;
+  const cols=[{t:'Data',w:28}].concat(GSLOTS.map(s=>({t:s.h.replace(/ (?=\S+$)/,'\n'),w:(CW-28)/6})));
+  const cab=()=>{doc.setFillColor(...TEAL);doc.rect(M,y,CW,10,'F');doc.setTextColor(255);doc.setFont('helvetica','bold');doc.setFontSize(8.5);
+    let x=M;cols.forEach((c,i)=>{const ls=c.t.split('\n');ls.forEach((l,j)=>doc.text(l,i?x+c.w/2:x+3,y+(ls.length>1?4.2:6.3)+j*3.6,{align:i?'center':'left'}));x+=c.w;});doc.setFont('helvetica','normal');y+=10;};
+  doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(...INK);doc.text('Registros por dia',M,y);y+=4;cab();
+  const RH=10;
+  ids.forEach((id,r)=>{ if(y+RH>PH-16){nova();cab();} if(r%2){doc.setFillColor(246,248,249);doc.rect(M,y,CW,RH,'F');}
+    let x=M; doc.setFontSize(9.5);doc.setTextColor(...INK);doc.setFont('helvetica','bold');doc.text(gfmt(id),x+3,y+4.8);
+    doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(...MUT);doc.text(gwd(id)+(G[id].obs?' · obs.':''),x+3,y+8.3); x+=cols[0].w;
+    GSLOTS.forEach((s,i)=>{const m=G[id][s.k],cx=x+cols[i+1].w/2;
+      if(m&&m.v!=null){const alto=m.v>s.meta;doc.setFont('helvetica','bold');doc.setFontSize(10);doc.setTextColor(...(alto?RED:GREEN));doc.text(String(m.v)+(alto?' !':''),cx,y+(m.h?4.8:6.3),{align:'center'});
+        if(m.h){doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(...MUT);doc.text(String(m.h),cx,y+8.3,{align:'center'});}}
+      else{doc.setTextColor(...LINE);doc.setFontSize(10);doc.text('-',cx,y+6.3,{align:'center'});}
+      x+=cols[i+1].w;});
+    doc.setDrawColor(...LINE);doc.line(M,y+RH,M+CW,y+RH); y+=RH; });
+  y+=3;doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...MUT);
+  doc.text('Valores em mg/dL. Verde = dentro da meta; vermelho com "!" = acima da meta. Horário abaixo do valor, quando anotado.',M,y+2); y+=10;
+  esp(80); doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(...INK);doc.text('Evolução',M,y);y+=4;
+  const gx=M+10,gy=y,gw=CW-12,gh=58;
+  const jej=ids.map(id=>G[id].jejum&&G[id].jejum.v!=null?+G[id].jejum.v:null);
+  const pos=ids.map(id=>{const v=GSLOTS.filter(s=>s.pos).map(s=>G[id][s.k]&&G[id][s.k].v).filter(v=>v!=null).map(Number);return v.length?Math.max(...v):null;});
+  const all=[...jej,...pos].filter(v=>v!=null);
+  const lo=Math.min(60,Math.floor(Math.min(...all)/20)*20),hi=Math.max(160,Math.ceil(Math.max(...all)/20)*20);
+  const X=i=>ids.length===1?gx+gw/2:gx+i*gw/(ids.length-1),Y=v=>gy+(hi-v)*gh/(hi-lo);
+  doc.setFontSize(7);
+  for(let v=lo;v<=hi;v+=20){doc.setDrawColor(...LINE);doc.setLineWidth(.2);doc.line(gx,Y(v),gx+gw,Y(v));doc.setTextColor(...MUT);doc.text(String(v),gx-2,Y(v)+1,{align:'right'});}
+  [[95,TEAL],[140,PUR]].forEach(([v,c])=>{doc.setDrawColor(...c);doc.setLineWidth(.3);doc.setLineDashPattern([1.2,1.2],0);doc.line(gx,Y(v),gx+gw,Y(v));doc.setLineDashPattern([],0);});
+  const st=Math.ceil(ids.length/12); ids.forEach((id,i)=>{if(i%st===0||i===ids.length-1){doc.setTextColor(...MUT);doc.text(gfmt(id),X(i),gy+gh+5,{align:'center'});}});
+  const serie=(a,c,meta)=>{doc.setDrawColor(...c);doc.setLineWidth(.6);let p=null;a.forEach((v,i)=>{if(v==null)return;if(p)doc.line(p[0],p[1],X(i),Y(v));p=[X(i),Y(v)];});
+    a.forEach((v,i)=>{if(v==null)return;doc.setFillColor(...(v>meta?RED:c));doc.circle(X(i),Y(v),v>meta?1.1:.8,'F');});};
+  serie(pos,PUR,140);serie(jej,TEAL,95);
+  y=gy+gh+10;doc.setFontSize(8);doc.setFillColor(...TEAL);doc.rect(M,y-2,5,1.2,'F');doc.setTextColor(...MUT);doc.text('Jejum (meta 95)',M+7,y);
+  doc.setFillColor(...PUR);doc.rect(M+42,y-2,5,1.2,'F');doc.text('Maior valor 1h após refeição (meta 140)',M+49,y);
+  doc.setFillColor(...RED);doc.circle(M+118,y-1.4,1,'F');doc.text('Acima da meta',M+121,y); y+=10;doc.setLineWidth(.2);
+  if(acima.length){ esp(14);doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(...INK);doc.text('Medidas acima da meta',M,y);y+=6;doc.setFont('helvetica','normal');doc.setFontSize(9.5);
+    acima.forEach(a=>{esp(6);doc.setTextColor(...RED);doc.text(`${a.m.v} mg/dL`,M,y);doc.setTextColor(...INK);doc.text(`${gbr(a.id)} (${gwd(a.id)})  ·  ${a.s.l}${a.m.h?' às '+a.m.h:''}  ·  meta até ${a.s.meta}`,M+22,y);y+=5.5;}); y+=5; }
+  const obs=ids.filter(id=>G[id].obs);
+  if(obs.length){ esp(14);doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(...INK);doc.text('Observações',M,y);y+=6;
+    obs.forEach(id=>{doc.setFont('helvetica','normal');doc.setFontSize(9.5);const ls=doc.splitTextToSize(String(G[id].obs),CW-24);esp(ls.length*4.6+4);
+      doc.setFont('helvetica','bold');doc.setTextColor(...TEAL);doc.text(gfmt(id),M,y);doc.setFont('helvetica','normal');doc.setTextColor(...INK);doc.text(ls,M+22,y);y+=ls.length*4.6+3;}); }
+  const n=doc.getNumberOfPages();
+  for(let p=1;p<=n;p++){doc.setPage(p);doc.setFontSize(8);doc.setTextColor(...MUT);doc.text(`Diário Glicêmico  ·  ${gbr(ids[0])} a ${gbr(ids[ids.length-1])}`,M,PH-8);doc.text(`Página ${p} de ${n}`,PW-M,PH-8,{align:'right'});}
+  return {blob:doc.output('blob'),nome:`glicemia_${ids[0]}_a_${ids[ids.length-1]}.pdf`};
+}
+$('#glPdf').addEventListener('click',async()=>{
+  const m=$('#glMsg'), b=$('#glPdf');
+  if(!Object.keys(G).length){flash(m,'Ainda não há medidas para colocar no PDF.');return;}
+  if(!window.jspdf){flash(m,'O gerador de PDF não carregou. Recarregue a página.');return;}
+  const dl=window.claude?await window.claude.use('downloads').catch(()=>null):null;
+  if(!dl){flash(m,'Não é possível baixar arquivos nesta visualização.');return;}
+  b.disabled=true;
+  try{const {blob,nome}=glPDF(); await dl.save({filename:nome,data:blob}); flash(m,'PDF pronto.',true);}
+  catch(err){const c=err&&err.code; flash(m,c==='declined'?'Download cancelado.':c==='rate_limited'?'Já existe um download aguardando confirmação.':'Não foi possível gerar o PDF agora. Tente de novo.');}
+  finally{b.disabled=false;}
+});
+
 /* ---------- Abas ---------- */
-const TABS=['resumo','carteira','dividendos','aporte','lancar','cartoes','contas','chacara','veiculos','luzagua'];
-function go(t){ if(t==='fiado'){t='chacara'; chSeg('fiado');} if(!TABS.includes(t)) t='resumo';
+const TABS=['resumo','carteira','dividendos','aporte','lancar','cartoes','contas','chacara','veiculos','luzagua','glicemia'];
+function go(t){ if(t==='fiado'){t='chacara'; chSeg('fiado');} if(!TABS.includes(t)) t='resumo'; if(document.body.classList.contains('guest')) t='glicemia';
+  document.body.classList.toggle('tab-glicemia',t==='glicemia');
   document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));
   document.querySelectorAll('[data-panel]').forEach(p=>p.hidden=p.dataset.panel!==t);
-  $('#kpis').hidden=(t==='contas'||t==='cartoes'||t==='chacara'||t==='veiculos'||t==='luzagua');
+  $('#kpis').hidden=(t==='contas'||t==='cartoes'||t==='chacara'||t==='veiculos'||t==='luzagua'||t==='glicemia');
+  if(t==='glicemia') glRender();
   try{localStorage.setItem('carteira-tab',t);}catch(e){}
   go.cur=t; if(go.ready) try{renderVenc(parcelas());}catch(e){}
   if(matchMedia('(max-width:640px)').matches&&go.ready) window.scrollTo({top:0});
