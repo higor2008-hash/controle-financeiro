@@ -312,7 +312,7 @@ function render(){
 
   $('#ativosList').innerHTML=S.ativos.map(a=>`<option value="${esc(a.ticker)}">${esc((a.nome||a.ticker)+' · '+(MODS[a.classe]||MODS.outro).l)}</option>`).join('');
   renderHist(V,demo);
-  renderCartoes(); renderContas(); renderVenc(parcelas()); renderVendas(); renderVeic(); renderUa();
+  renderCartoes(); renderContas(); renderVenc(parcelas()); renderOv(P.total); renderVendas(); renderVeic(); renderUa();
 }
 
 const PAL=['#4fd08a','#f7b538','#ff5c74','#7c5cff','#5aa9ff','#2dd4bf','#f472b6','#a3e635','#fb923c','#94a3b8'];
@@ -571,7 +571,7 @@ function vencendo(P){
   return out.sort((a,b)=>a.d<b.d?-1:1);
 }
 function renderVenc(P){
-  const L=vencendo(P), el=$('#vencBanner');
+  const tab=go.cur||'resumo', L=vencendo(P).filter(x=>tab==='veiculos'?x.c.tab==='veiculos':x.c.tab!=='veiculos'), el=$('#vencBanner');  // licenciamento só aparece na aba Veículos
   if(!L.length){el.hidden=true;return;}
   const hoje=today(), dias=d=>{const n=Math.round((new Date(d)-new Date(hoje))/864e5);return n===1?'amanhã':'em '+n+' dias';};
   const late=L.filter(x=>x.st==='late').length;
@@ -581,6 +581,55 @@ function renderVenc(P){
     ${L.every(x=>x.c.tab==='veiculos')?'<button class="btn small" data-goto="veiculos">Ver veículos</button>':L.every(x=>x.c.tab==='luzagua')?'<button class="btn small" data-goto="luzagua">Ver luz e água</button>':'<button class="btn small" data-goto="contas">Ver contas</button>'}`;
   el.hidden=false;
 }
+/* ---------- Visão geral (página inicial) ---------- */
+function ovBars(meses,series,cls,fmtTop){
+  const vals=series.flat(), max=Math.max(...vals.map(Math.abs),0), min=Math.min(...vals,0);
+  if(!max) return '<p class="empty">Nada lançado nesses meses.</p>';
+  const step=niceStep((max-min)/4), top=Math.ceil(Math.max(...vals,0)/step)*step, bot=Math.floor(min/step)*step, W=560,H=200,L=52,B=24,T=12, span=top-bot||1, bw=(W-L)/meses.length, n=series.length;
+  const y=v=>T+(H-T-B)*(1-(v-bot)/span);
+  let g=''; for(let v=bot;v<=top+1e-9;v+=step){g+=`<line class="grid" x1="${L}" x2="${W}" y1="${y(v)}" y2="${y(v)}"/><text x="${L-6}" y="${y(v)+3}" text-anchor="end">${N0.format(v)}</text>`;}
+  meses.forEach((m,i)=>{ const gw=bw*0.7, w=gw/n;
+    series.forEach((s,j)=>{const v=s[i], c=typeof cls[j]==='function'?cls[j](v):cls[j], X=L+i*bw+bw*0.15+j*w, Y=Math.min(y(v),y(0)), h=Math.abs(y(v)-y(0));
+      g+=`<rect class="${c}" x="${X.toFixed(1)}" y="${Y.toFixed(1)}" width="${Math.max(1,w-2).toFixed(1)}" height="${h.toFixed(1)}" rx="2"><title>${MESES[+m.slice(5)-1]}: ${R(v)}</title></rect>`;});
+    g+=`<text x="${L+i*bw+bw/2}" y="${H-8}" text-anchor="middle" class="lbl">${MESES[+m.slice(5)-1]}</text>`;});
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Gráfico por mês">${g}</svg>`;
+}
+function chLucro(ym){
+  const rec=(S.vendas||[]).filter(v=>v.pago&&(v.data||'').slice(0,7)===ym).reduce((s,v)=>s+vTot(v),0);
+  const recL=+(((S.leitemes||[]).find(x=>x.id==='lm-'+ym)||{}).recebido)||0;
+  const desp=(S.chgastos||[]).filter(x=>x.mes===ym).reduce((t,x)=>t+(+x.valor||0),0);
+  return Math.round((recL+rec-desp)*100)/100;
+}
+function renderOv(patrimonio){
+  const ym=today().slice(0,7), P=parcelas(), soma=a=>a.reduce((s,x)=>s+(+x.valor||0),0);
+  $('#ovMes').textContent=MESES_L[+ym.slice(5)-1].toLowerCase();
+  const L=contasDoMes(ym,P), tot=soma(L), pago=soma(L.filter(c=>c.pago)), rt=soma(S.receitas.filter(r=>r.mes===ym));
+  const fat=P.filter(x=>x.ym===ym), ft=fat.reduce((s,x)=>s+x.v,0), nCart=new Set(fat.map(x=>x.c.id)).size;
+  const fatPaga=[...new Set(fat.map(x=>x.c.id))].every(id=>((S.faturas||[]).find(f=>f.id==='fp-'+id+'-'+ym)||{}).pago);
+  const lucro=chLucro(ym);
+  const uas=S.ucs||[], uaPg=uas.filter(u=>{const r=uaMesDoc(u.id,ym); return r&&r.pago;}).length;
+  const late=vencendo(P).filter(x=>x.c.tab!=='veiculos'&&x.st==='late').length;
+  const k=(tab,l,v,s,c='')=>`<div class="ckpi" data-goto="${tab}" role="button" tabindex="0"><div class="l">${l}</div><div class="v ${c}">${v}</div><div class="s">${s}</div></div>`;
+  $('#ovKpis').innerHTML=
+    k('contas','Contas do mês',R(tot),tot-pago>0.004?'faltam '+R(tot-pago)+(late?' · '+late+' vencida'+(late===1?'':'s'):''):'tudo pago',late?'down':'')+
+    k('contas','Receitas do mês',rt?R(rt):'—',rt?'sobra '+R(rt-tot):'lance em Contas',rt?cls(rt-tot):'')+
+    k('cartoes','Fatura do cartão',R(ft),ft?(fatPaga?'paga':nCart+' cartã'+(nCart===1?'o':'os')+' · em aberto'):'nada neste mês')+
+    k('carteira','Investimentos',R(patrimonio),'patrimônio hoje','gold')+
+    k('chacara','Chácara no mês',R(lucro),'lucro líquido',cls(lucro))+
+    k('luzagua','Luz e água',uaPg+' de '+uas.length,'pagas neste mês');
+  const meses=[-4,-3,-2,-1,0,1].map(d=>ymAdd(ym,d));
+  $('#ovChart').innerHTML=ovBars(meses,[meses.map(m=>soma(S.receitas.filter(r=>r.mes===m))),meses.map(m=>soma(contasDoMes(m,P)))],['rc','dc'])
+    +'<div class="ovleg"><span><i style="background:#4fd08a"></i>Receitas</span><span><i style="background:#ff5c74"></i>Contas</span></div>';
+  const porCat={}; L.forEach(c=>{const k=c.categoria||'Outros'; porCat[k]=(porCat[k]||0)+(+c.valor||0);});
+  const cats=Object.entries(porCat).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]);
+  $('#ovCat').innerHTML=cats.length?donut(cats.map(([l,v])=>({l,v})),kfmtOv(tot),'no mês'):'<p class="empty">Nenhuma conta neste mês.</p>';
+  const porG={}; fat.forEach(x=>{const k=x.g.categoria||'Outros'; porG[k]=(porG[k]||0)+x.v;});
+  const gc=Object.entries(porG).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]);
+  $('#ovCard2').innerHTML=gc.length?donut(gc.map(([l,v])=>({l,v})),kfmtOv(ft),'na fatura'):'<p class="empty">Nenhum gasto no cartão neste mês.</p>';
+  const mc=[-5,-4,-3,-2,-1,0].map(d=>ymAdd(ym,d));
+  $('#ovChac').innerHTML=ovBars(mc,[mc.map(chLucro)],[v=>v<0?'ln':'lc']);
+}
+const kfmtOv=v=>v>=1e6?'R$ '+N2.format(v/1e6)+' mi':v>=1e3?'R$ '+(v/1e3).toFixed(1).replace('.',',')+' mil':R(v);
 function contasDoMes(ym,P){
   const L=S.contas.filter(c=>c.mes===ym).map(c=>({...c,auto:false}));
   const porCard={}; P.filter(x=>x.ym===ym).forEach(x=>{porCard[x.c.id]=(porCard[x.c.id]||0)+x.v;});
@@ -1146,10 +1195,12 @@ function go(t){ if(t==='fiado'){t='chacara'; chSeg('fiado');} if(!TABS.includes(
   document.querySelectorAll('[data-panel]').forEach(p=>p.hidden=p.dataset.panel!==t);
   $('#kpis').hidden=(t==='contas'||t==='cartoes'||t==='chacara'||t==='veiculos'||t==='luzagua');
   try{localStorage.setItem('carteira-tab',t);}catch(e){}
+  go.cur=t; if(go.ready) try{renderVenc(parcelas());}catch(e){}
   if(matchMedia('(max-width:640px)').matches&&go.ready) window.scrollTo({top:0});
   go.ready=true;
 }
 document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.tab)));
+$('#ovKpis').addEventListener('keydown',e=>{const k=e.target.closest('[data-goto]'); if(k&&(e.key==='Enter'||e.key===' ')){e.preventDefault();go(k.dataset.goto);}});
 let start=(location.hash||'').slice(1); if(!TABS.includes(start)){try{start=localStorage.getItem('carteira-tab')||'resumo';}catch(e){start='resumo';}}
 go(start);
 $('#oData').value=today(); $('#dData').value=today(); $('#gData').value=today();
