@@ -141,14 +141,22 @@
   }
   async function sair() { await sb.auth.signOut(); location.reload(); }
 
-  /* ---------- Início: só o dono cadastrado em cf_dono entra ---------- */
+  /* Download de arquivo (PDF da Glicemia) direto pelo navegador */
+  const downloads = { save: async ({ filename, data }) => { const u = URL.createObjectURL(data), a = document.createElement("a"); a.href = u; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000); } };
+
+  /* ---------- Início: o dono (cf_dono) vê tudo; convidado (cf_glic_acesso) só a Glicemia ---------- */
   let iniciado = false;
   async function iniciar(session) {
     if (iniciado) return; iniciado = true;
     const { data: dono, error } = await sb.rpc("cf_e_dono");
     if (error) { iniciado = false; return mostrar(titulo + `<p class="sub">Não foi possível conferir o seu acesso. Recarregue a página.</p>`); }
-    if (!dono) { mostrar(titulo + `<p class="sub">O usuário ${esc(session.user.email)} não tem acesso a este site.</p><button class="btn" type="button" id="lgSair">Sair</button>`); $("#lgSair").onclick = sair; return; }
-    window.claude = { use: async nome => nome === "db" ? db : null };
+    let nivelGlic = 0;
+    if (!dono) { const r = await sb.rpc("cf_glic_nivel"); nivelGlic = r.error ? 0 : +r.data || 0; }
+    if (!dono && !nivelGlic) { mostrar(titulo + `<p class="sub">O usuário ${esc(session.user.email)} não tem acesso a este site.</p><button class="btn" type="button" id="lgSair">Sair</button>`); $("#lgSair").onclick = sair; return; }
+    // Convidado só de leitura: a recusa da base vira "invalid_argument", que a tela da Glicemia entende como "só ver".
+    const dbUso = dono || nivelGlic >= 2 ? db : { ...db, doc: p => { const d = db.doc(p), trava = f => async (...a) => { try { return await f(...a); } catch (e) { if (e && e.code === "permission_denied") e.code = "invalid_argument"; throw e; } }; return { ...d, set: trava(d.set), delete: trava(d.delete) }; } };
+    const user = { canEdit: async () => !!dono, isOwner: () => !!dono };
+    window.claude = { use: async nome => nome === "db" ? dbUso : nome === "user" ? user : nome === "downloads" ? downloads : null };
     scr.hidden = true; document.body.classList.remove("locked");
     tempoReal();
     const s = document.createElement("script"); s.src = "app.js?v=" + (cfg.versao || "1"); document.body.appendChild(s);
