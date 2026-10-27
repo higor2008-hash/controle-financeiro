@@ -642,6 +642,7 @@ function contasDoMes(ym,P){
   return L.sort((a,b)=>(a.pago===b.pago?0:a.pago?1:-1)||ord(a)-ord(b)||(b.valor||0)-(a.valor||0));
 }
 function renderContas(){
+  renderAv();
   const P=parcelas(); const L=contasDoMes(ctYM,P);
   $('#ctMes').textContent=ymNome(ctYM);
   const tot=L.reduce((s,c)=>s+(+c.valor||0),0), pago=L.filter(c=>c.pago).reduce((s,c)=>s+(+c.valor||0),0);
@@ -688,6 +689,39 @@ $('#fConta').addEventListener('submit',async e=>{
     $('#ctDesc').value='';$('#ctValor').value='';$('#ctRep').value='1'; ctYM=ym; renderContas();
   }catch(err){flash(m,errTxt(err));}
 });
+/* ---------- Gastos à vista: itens dentro da conta av-YYYY-MM ---------- */
+const avDoc=ym=>S.contas.find(c=>c.id==='av-'+ym);
+async function avSalva(ym,itens){
+  const id='av-'+ym, cur=avDoc(ym);
+  if(!itens.length){ if(cur) await store.del('contas',id); return; }
+  const valor=Math.round(itens.reduce((t,i)=>t+(+i.v||0),0)*100)/100;
+  const {id:_,...base}=cur||{};
+  await store.put('contas',id,{...base,mes:ym,descricao:'Gastos à vista',categoria:'Extras',valor,pago:cur?!!cur.pago:true,pagoEm:(cur&&cur.pagoEm)||today(),itens});
+}
+function renderAv(){
+  const c=avDoc(ctYM), L=(c&&c.itens)||[];
+  $('#avMes').textContent=MESES_L[+ctYM.slice(5)-1].toLowerCase();
+  $('#avTot').textContent=L.length?R(c.valor):'';
+  const ord=L.map((x,i)=>({x,i})).sort((a,b)=>(b.x.dt||'').localeCompare(a.x.dt||''));
+  $('#tblAv').innerHTML=L.length?`<thead><tr><th>Dia</th><th>O que foi</th><th>Pago com</th><th class="n">Valor</th><th></th></tr></thead><tbody>${ord.map(({x,i})=>`<tr><td class="num">${x.dt?fmtD(x.dt):'—'}</td><td style="white-space:normal">${esc(x.d)}</td><td>${esc(x.f||'—')}</td><td class="n">${R(+x.v)}</td><td><button class="btn danger small" type="button" data-avdel="${i}">Excluir</button></td></tr>`).join('')}</tbody>`
+    :'<tbody><tr><td class="empty">Nenhum gasto à vista neste mês.</td></tr></tbody>';
+  const dt=$('#avData'); if(!dt.value||dt.value.slice(0,7)!==ctYM) dt.value=today().slice(0,7)===ctYM?today():ctYM+'-01';
+}
+$('#fAv').addEventListener('submit',async e=>{
+  e.preventDefault(); const m=$('#mAv'), d=$('#avDesc').value.trim(), v=Math.round(+$('#avValor').value*100)/100, dt=$('#avData').value, f=$('#avForma').value;
+  if(!d){flash(m,'Diga o que foi o gasto.');return;}
+  if(!(v>0)){flash(m,'Informe o valor.');return;}
+  const ym=/^\d{4}-\d{2}-\d{2}$/.test(dt)?dt.slice(0,7):ctYM;
+  const itens=[...((avDoc(ym)||{}).itens||[]),{d,v,dt:dt||null,f}];
+  if(itens.length>300){flash(m,'Limite de 300 gastos à vista por mês.');return;}
+  try{ await avSalva(ym,itens); flash(m,`${d} lançado em ${ymNome(ym)}.`,true); $('#avDesc').value='';$('#avValor').value=''; $('#avDesc').focus(); }catch(err){flash(m,errTxt(err));}
+});
+$('#tblAv').addEventListener('click',async e=>{
+  const b=e.target.closest('[data-avdel]'); if(!b) return; const c=avDoc(ctYM); if(!c) return;
+  const i=+b.dataset.avdel, it=(c.itens||[])[i]; if(!it||!confirm(`Excluir "${it.d}" (${R(+it.v)})?`)) return;
+  try{ await avSalva(ctYM,c.itens.filter((_,k)=>k!==i)); }catch(err){flash($('#mAv'),errTxt(err));}
+});
+
 $('#fRec').addEventListener('submit',async e=>{
   e.preventDefault(); const m=$('#mRec'); const fonte=$('#rFonte').value.trim(), v=+$('#rValor').value, n=Math.round(+$('#rRep').value||1);
   if(!fonte){flash(m,'Diga de onde vem a receita.');return;}

@@ -607,6 +607,18 @@ html,body{margin:0;background:var(--bg)}
       <div class="ckpis" id="ctKpis"></div>
       <div class="tbl" style="margin-top:14px"><table id="tblContas"></table></div>
     </div>
+    <div class="card" id="avCard">
+      <div class="headrow"><div><h2>Gastos à vista de <span id="avMes"></span></h2><p class="sub">Dinheiro, Pix ou débito. Cada gasto entra dentro da conta "Gastos à vista" do mês, já como paga.</p></div><div class="v num" id="avTot" style="font-size:20px;font-weight:700"></div></div>
+      <div class="tbl"><table id="tblAv"></table></div>
+      <form class="f" id="fAv" style="margin-top:14px">
+        <label class="fld wide">O que foi<input id="avDesc" required placeholder="Padaria" autocomplete="off" maxlength="120"></label>
+        <label class="fld">Valor (R$)<input id="avValor" type="number" min="0" step="0.01" required inputmode="decimal"></label>
+        <label class="fld">Dia<input id="avData" type="date"></label>
+        <label class="fld">Pago com<select id="avForma"><option>Dinheiro</option><option>Pix</option><option>Débito</option></select></label>
+        <button class="btn" type="submit">Lançar gasto</button>
+      </form>
+      <div class="msg" id="mAv"></div>
+    </div>
     <div class="grid2">
       <div class="card">
         <h2>Próximos 12 meses</h2>
