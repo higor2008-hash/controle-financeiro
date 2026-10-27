@@ -151,6 +151,8 @@ main{padding-block:20px 48px}
 .chart .rc{fill:#4fd08a}.chart .dc{fill:#ff5c74}.chart .lc{fill:#4fd08a}.chart .ln{fill:#ff5c74}
 @media (max-width:860px){.ovgrid{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:720px){#ovKpis{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px}#ovKpis .ckpi{padding:10px 11px}#ovKpis .v{font-size:17px}}
+#tblCi td:first-child{white-space:normal;overflow-wrap:anywhere}
+@media (max-width:640px){#tblCi .acts{display:flex;flex-direction:column;gap:6px}#fCi>.btn{grid-column:1/-1}}
 .grid2{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:20px}
 @media (max-width:860px){.grid2{grid-template-columns:minmax(0,1fr)}}
 .card{background:linear-gradient(180deg,rgba(255,255,255,.025),transparent 120px),var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;min-width:0;box-shadow:var(--glow)}
@@ -720,6 +722,19 @@ html,body{margin:0;background:var(--bg)}
         <p class="hint" id="vTotal"></p>
         <div class="msg" id="mVenda"></div>
         <datalist id="prodList"><option value="Queijo"><option value="Leite"></datalist><datalist id="cliList"></datalist>
+      </div>
+      <div class="card" id="ciCard">
+        <h2>Meus itens</h2>
+        <p class="sub">Cadastre produtos para vender e itens de despesa. Eles aparecem na lista ao lançar, já com o preço.</p>
+        <div class="seg" id="ciSeg" role="group" aria-label="Tipo de item"><button type="button" data-ci="produto" aria-pressed="true">Produtos</button><button type="button" data-ci="despesa" aria-pressed="false">Despesas</button></div>
+        <div class="tbl" style="margin-top:10px"><table id="tblCi"></table></div>
+        <form class="f" id="fCi" style="margin-top:14px">
+          <label class="fld wide">Nome<input id="ciNome" required maxlength="60" autocomplete="off" placeholder="Doce de leite"></label>
+          <label class="fld" data-cionly="produto">Unidade<select id="ciUn"><option value="kg">kg</option><option value="L">litro</option><option value="un">unidade</option></select></label>
+          <label class="fld"><span id="ciPrecoL">Preço por unidade (R$)</span><input id="ciPreco" type="number" min="0" step="0.01" inputmode="decimal" placeholder="opcional"></label>
+          <button class="btn" type="submit" id="ciBtn">Cadastrar produto</button>
+        </form>
+        <div class="msg" id="mCi"></div>
       </div>
     </div>
     <div class="grid2">

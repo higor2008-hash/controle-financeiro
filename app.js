@@ -51,7 +51,7 @@ function demoState(){
 }
 
 /* ---------- Estado e armazenamento ---------- */
-let S = {ativos:[],ops:[],divs:[],cartoes:[],gastos:[],contas:[],receitas:[],vendas:[],clientes:[],faturas:[],producao:[],leitemes:[],chgastos:[],animais:[],veiculos:[],licenc:[],ucs:[],ucmes:[],config:{taxaBazin:6}};
+let S = {ativos:[],ops:[],divs:[],cartoes:[],gastos:[],contas:[],receitas:[],vendas:[],clientes:[],faturas:[],producao:[],leitemes:[],chgastos:[],animais:[],veiculos:[],licenc:[],ucs:[],ucmes:[],chitens:[],config:{taxaBazin:6}};
 let loaded = {ativos:false,ops:false,divs:false};
 let db=null, mode='loading';
 
@@ -60,7 +60,7 @@ function view(){ const ready = mode==='local' || (mode==='db' && loaded.ativos &
 
 /* Proteções de escrita: só coleções conhecidas, ids sem barra (não dá para apontar para outro caminho da base),
    dados limpos e limite de alterações por tempo. Quem pode ler e gravar é definido pelas regras da base (só o dono). */
-const COLS=['ativos','compras','dividendos','cartoes','gastos','contas','receitas','vendas','clientes','producao','leitemes','chgastos','animais','faturas','veiculos','licenc','ucs','ucmes','acesso','config'];
+const COLS=['ativos','compras','dividendos','cartoes','gastos','contas','receitas','vendas','clientes','producao','leitemes','chgastos','animais','faturas','veiculos','licenc','ucs','ucmes','chitens','acesso','config'];
 const ID_RE=/^(?!\.\.?$)[A-Za-z0-9_\-.~:@+]{1,200}$/;
 function bad(code){const e=new Error(code);e.code=code;return e;}
 function clean(v,d=0){
@@ -109,14 +109,14 @@ async function boot(){
       S[key]=snap.docs.map(x=>({id:x.id,...x.data()})); loaded[key]=true;
       setSync(true,'Salvo na nuvem'); render();
     },err=>{setSync(false,'Sem conexão com a base ('+(err&&err.code||'erro')+')');});
-    sub('ativos','ativos'); sub('compras','ops'); sub('dividendos','divs'); sub('cartoes','cartoes'); sub('gastos','gastos'); sub('contas','contas'); sub('receitas','receitas'); sub('vendas','vendas'); sub('clientes','clientes'); sub('producao','producao'); sub('leitemes','leitemes'); sub('chgastos','chgastos'); sub('animais','animais'); sub('faturas','faturas'); sub('veiculos','veiculos'); sub('licenc','licenc'); sub('ucs','ucs'); sub('ucmes','ucmes');
+    sub('ativos','ativos'); sub('compras','ops'); sub('dividendos','divs'); sub('cartoes','cartoes'); sub('gastos','gastos'); sub('contas','contas'); sub('receitas','receitas'); sub('vendas','vendas'); sub('clientes','clientes'); sub('producao','producao'); sub('leitemes','leitemes'); sub('chgastos','chgastos'); sub('animais','animais'); sub('faturas','faturas'); sub('veiculos','veiculos'); sub('licenc','licenc'); sub('ucs','ucs'); sub('ucmes','ucmes'); sub('chitens','chitens');
     db.doc('acesso/pin').onSnapshot(s=>{ pinSet(s.exists?s.data():null); },()=>{ pinSet(null); });
     db.doc('config/geral').onSnapshot(s=>{ if(s.exists) S.config={taxaBazin:6,...s.data()}; render(); },()=>{});
     setSync(false,'Carregando…');
     setTimeout(()=>{ if(mode==='db'){ render(); } },1500);
   } else {
     mode='local'; try{pinSet(JSON.parse(localStorage.getItem('carteira-pin')||'null'));}catch(e){pinSet(null);}
-    try{const raw=localStorage.getItem(KEY); if(raw){const p=JSON.parse(raw); S={...S,...p}; S.cartoes=S.cartoes||[]; S.gastos=S.gastos||[]; S.contas=S.contas||[]; S.receitas=S.receitas||[]; S.vendas=S.vendas||[]; ['clientes','producao','leitemes','chgastos','animais','faturas','veiculos','licenc','ucs','ucmes'].forEach(k=>S[k]=S[k]||[]);}}catch(e){}
+    try{const raw=localStorage.getItem(KEY); if(raw){const p=JSON.parse(raw); S={...S,...p}; S.cartoes=S.cartoes||[]; S.gastos=S.gastos||[]; S.contas=S.contas||[]; S.receitas=S.receitas||[]; S.vendas=S.vendas||[]; ['clientes','producao','leitemes','chgastos','animais','faturas','veiculos','licenc','ucs','ucmes','chitens'].forEach(k=>S[k]=S[k]||[]);}}catch(e){}
     setSync(false,'Salvo só neste navegador');
     render();
   }
@@ -753,6 +753,7 @@ function edSchema(col,d){
       {k:'produto',l:'Compra',t:'select',opts:[['','Leite e queijo'],['Queijo','Queijo'],['Leite','Leite']]}]};
     case 'chgastos': return {tit:'Editar despesa da chácara',f:[{k:'mes',l:'Mês',t:'month'},{k:'descricao',l:'Descrição',t:'text',wide:1},num('valor','Valor (R$)',{step:'0.01'})]};
     case 'veiculos': return {tit:'Editar veículo',sub:'Placa '+d.placa,f:[{k:'nome',l:'Veículo',t:'text',wide:1},{k:'renavam',l:'RENAVAM',t:'text',opt:1},{k:'obs',l:'Observação',t:'text',wide:1,opt:1}]};
+    case 'chitens': return {tit:d.tipo==='despesa'?'Editar item de despesa':'Editar produto',f:[{k:'nome',l:'Nome',t:'text',wide:1},...(d.tipo==='despesa'?[]:[{k:'un',l:'Unidade',t:'select',opts:[['kg','kg'],['L','litro'],['un','unidade']]}]),num('preco',d.tipo==='despesa'?'Valor de costume (R$)':'Preço por unidade (R$)',{step:'0.01',min:0,opt:1})]};
     case 'ucs': return {tit:'Editar unidade',sub:(d.tipo==='agua'?'Água':'Energia')+(d.numero?' · conta '+d.numero:''),f:[{k:'tipo',l:'Tipo',t:'select',opts:[['energia','Energia'],['agua','Água']]},{k:'numero',l:'Número da conta',t:'text',opt:1},{k:'titular',l:'No nome de',t:'text',list:'ucTitList',opt:1},num('dia','Dia do vencimento',{step:'1',min:1,max:31,opt:1}),{k:'local',l:'Local ou inquilino',t:'text',wide:1},{k:'endereco',l:'Endereço',t:'text',wide:1,opt:1},{k:'obs',l:'Observação',t:'text',wide:1,opt:1}]};
     case 'licenc': return {tit:'Editar pagamento do veículo',sub:veicNome(d.placa)+' · '+d.ano,f:[{k:'venc',l:'Vencimento',t:'date',opt:1},num('valor','Valor (R$)',{step:'0.01'}),{k:'pago',l:'Situação',t:'select',opts:[['0','A pagar'],['1','Pago']]},{k:'obs',l:'Observação',t:'text',wide:1,opt:1}]};
     case 'animais': return {tit:'Editar animal',f:[{k:'nome',l:'Nome',t:'text',wide:1},{k:'obs',l:'Observação',t:'text',wide:1,opt:1}]};
@@ -944,7 +945,7 @@ function renderLeite(PR,LM){
 function renderChG(G){
   $('#tblChG').innerHTML=G.length?`<tbody>${G.map(g=>`<tr><td>${esc(g.descricao)}</td><td class="n">${R(+g.valor)}</td><td style="width:1%"><span class="acts"><button class="btn ghost small" data-ed="chgastos" data-id="${esc(g.id)}">Editar</button><button class="btn danger small" data-del="chgastos" data-id="${esc(g.id)}">Excluir</button></span></td></tr>`).join('')}</tbody><tfoot><tr><td>Total</td><td class="n">${R(G.reduce((t,x)=>t+(+x.valor||0),0))}</td><td></td></tr></tfoot>`
     :`<tbody><tr><td class="empty">Nenhuma despesa em ${ymNome(vdYM)}.</td></tr></tbody>`;
-  $('#cgList').innerHTML=[...new Set((S.chgastos||[]).map(g=>g.descricao))].slice(0,50).map(f=>`<option value="${esc(f)}">`).join('');
+  renderCi();
 }
 function renderAnimais(){
   const A=[...(S.animais||[])].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt'));
@@ -974,6 +975,37 @@ $('#fLeiteMes').addEventListener('submit',async e=>{
   const o={mes:vdYM}; if(r!=='') o.recebido=+r; if(f!=='') o.faltou=+f;
   try{await store.put('leitemes','lm-'+vdYM,o); flash(m,'Fechamento de '+ymNome(vdYM)+' salvo.',true);}catch(err){flash(m,errTxt(err));}
 });
+/* ---------- Itens cadastrados da chácara (chitens: produto ou despesa) ---------- */
+let ciTipo='produto';
+const ciSlug=t=>t.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,60)||'item';
+const ciDe=t=>(S.chitens||[]).filter(x=>x.tipo===t).sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt'));
+function renderCi(){
+  document.querySelectorAll('#ciSeg button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.ci===ciTipo));
+  document.querySelectorAll('[data-cionly]').forEach(l=>l.hidden=l.dataset.cionly!==ciTipo);
+  $('#ciPrecoL').textContent=ciTipo==='produto'?'Preço por unidade (R$)':'Valor de costume (R$)';
+  $('#ciBtn').textContent=ciTipo==='produto'?'Cadastrar produto':'Cadastrar despesa';
+  $('#ciNome').placeholder=ciTipo==='produto'?'Doce de leite':'Vacina aftosa';
+  const L=ciDe(ciTipo);
+  $('#tblCi').innerHTML=L.length?`<tbody>${L.map(x=>`<tr><td>${esc(x.nome)}${x.tipo==='produto'?` <span class="sub2">${esc(UN[x.un]||x.un||'')}</span>`:''}</td><td class="n">${x.preco!=null?R(+x.preco):'—'}</td><td style="width:1%"><span class="acts"><button class="btn ghost small" data-ed="chitens" data-id="${esc(x.id)}">Editar</button><button class="btn danger small" data-del="chitens" data-id="${esc(x.id)}">Excluir</button></span></td></tr>`).join('')}</tbody>`
+    :`<tbody><tr><td class="empty">Nenhum${ciTipo==='produto'?' produto':'a despesa'} cadastrad${ciTipo==='produto'?'o':'a'} ainda.</td></tr></tbody>`;
+  const prods=[...new Set(['Queijo','Leite',...ciDe('produto').map(x=>x.nome),...(S.vendas||[]).map(v=>v.produto).filter(Boolean)])];
+  $('#prodList').innerHTML=prods.slice(0,80).map(f=>`<option value="${esc(f)}">`).join('');
+  const desp=[...new Set([...ciDe('despesa').map(x=>x.nome),...(S.chgastos||[]).map(g=>g.descricao)])];
+  $('#cgList').innerHTML=desp.slice(0,80).map(f=>`<option value="${esc(f)}">`).join('');
+}
+$('#ciSeg').addEventListener('click',e=>{const b=e.target.closest('[data-ci]'); if(!b) return; ciTipo=b.dataset.ci; renderCi();});
+$('#fCi').addEventListener('submit',async e=>{
+  e.preventDefault(); const m=$('#mCi'), nome=$('#ciNome').value.trim().slice(0,60), pv=$('#ciPreco').value, preco=pv===''?null:Math.round(+pv*100)/100;
+  if(!nome){flash(m,'Escreva o nome do item.');return;}
+  if(preco!=null&&!(preco>=0)){flash(m,'Valor inválido.');return;}
+  const id=(ciTipo==='produto'?'p-':'d-')+ciSlug(nome), d={tipo:ciTipo,nome,preco};
+  if(ciTipo==='produto') d.un=$('#ciUn').value;
+  try{await store.put('chitens',id,d); flash(m,`${nome} cadastrad${ciTipo==='produto'?'o':'a'}.`,true); $('#ciNome').value=''; $('#ciPreco').value='';}catch(err){flash(m,errTxt(err));}
+});
+const ciAcha=(t,n)=>ciDe(t).find(x=>(x.nome||'').toLowerCase()===n.trim().toLowerCase());
+$('#vProd').addEventListener('change',()=>{const x=ciAcha('produto',$('#vProd').value); if(!x) return; if(x.un) $('#vUn').value=x.un; if(x.preco!=null) $('#vPreco').value=x.preco; $('#vPreco').dispatchEvent(new Event('input',{bubbles:true}));});
+$('#cgDesc').addEventListener('change',()=>{const x=ciAcha('despesa',$('#cgDesc').value); if(x&&x.preco!=null&&!$('#cgValor').value) $('#cgValor').value=x.preco;});
+
 $('#fChG').addEventListener('submit',async e=>{
   e.preventDefault(); const m=$('#mChG'), desc=$('#cgDesc').value.trim(), v=+$('#cgValor').value;
   if(!desc){flash(m,'Escreva a descrição.');return;} if(!(v>0)){flash(m,'Informe o valor.');return;}
