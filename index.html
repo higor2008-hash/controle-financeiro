@@ -97,8 +97,9 @@ body.priv .v,body.priv .num,body.priv td.n,body.priv .kpi .s,body.priv .ckpi .s,
 .vbanner.late{border-color:rgba(255,92,116,.5);background:rgba(255,92,116,.08)}
 .vbanner ul{margin:6px 0 0;padding-left:18px;font-size:13px;color:var(--ink-2)}
 .vbanner b{color:var(--ink)}
-.ck4{grid-template-columns:repeat(4,minmax(0,1fr))}
-@media (max-width:720px){.ck4{grid-template-columns:repeat(2,minmax(0,1fr))}.ck4 .v{font-size:17px}}
+.ck4{grid-template-columns:repeat(5,minmax(0,1fr))}
+@media (max-width:1000px) and (min-width:721px){.ck4{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:720px){.ck4{grid-template-columns:repeat(2,minmax(0,1fr))}.ck4 .v{font-size:17px}.ck4 .ckpi:last-child{grid-column:1/-1}}
 .dias{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
 .dias button{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:6px 2px;color:var(--ink-3);font:inherit;font-size:11px;cursor:pointer;line-height:1.25;min-width:0}
 .dias button b{display:block;font-family:var(--f-mono);font-size:14px;color:var(--ink);font-weight:600}

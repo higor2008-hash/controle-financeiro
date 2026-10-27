@@ -848,7 +848,10 @@ function renderVendas(){
     <div class="ckpi"><div class="l">Leite em ${MESES_L[+ym.slice(5)-1]}</div><div class="v">${NQ.format(lit)} L</div><div class="s">${diasL?diasL+' dias · média '+NQ.format(Math.round(lit/diasL*10)/10)+' L':'nenhum dia lançado'}</div></div>
     <div class="ckpi"><div class="l">Recebido</div><div class="v up">${R(recL+rec)}</div><div class="s">${recL&&lit?'leite a '+R(recL/lit)+'/L':'leite '+R(recL)}${rec?' · vendas '+R(rec):''}</div></div>
     <div class="ckpi"><div class="l">Despesas</div><div class="v ${desp?'down':''}">${R(desp)}</div><div class="s">${G.length} lançamento${G.length===1?'':'s'}</div></div>
-    <div class="ckpi"><div class="l">Lucro líquido</div><div class="v ${cls(lucro)}">${R(lucro)}</div><div class="s">${tot-rec>0.004?'a receber '+R(tot-rec):(+LM.faltou?'faltou receber '+R(+LM.faltou):'recebido − despesas')}</div></div>`;
+    <div class="ckpi"><div class="l">Lucro líquido</div><div class="v ${cls(lucro)}">${R(lucro)}</div><div class="s">${tot-rec>0.004?'a receber '+R(tot-rec):(+LM.faltou?'faltou receber '+R(+LM.faltou):'recebido − despesas')}</div></div>
+    ${(()=>{// fiado não pago continua aparecendo nos meses seguintes até ser pago
+      const F=V.filter(v=>!v.pago&&(v.data||'').slice(0,7)<=ym), ft=F.reduce((s,v)=>s+vTot(v),0), ant=F.filter(v=>(v.data||'').slice(0,7)<ym).reduce((s,v)=>s+vTot(v),0), nc=new Set(F.map(v=>((v.cliente||'').trim()||'Sem nome').toLowerCase())).size;
+      return `<div class="ckpi" data-chseg="fiado" role="button" tabindex="0" style="cursor:pointer"><div class="l">Fiado em aberto</div><div class="v ${ft>0.004?'gold':''}">${R(ft)}</div><div class="s">${F.length?nc+' cliente'+(nc===1?'':'s')+(ant>0.004?' · '+R(ant)+' de meses anteriores':' · deste mês'):'ninguém devendo'}</div></div>`;})()}`;
   renderLeite(PR,LM); renderChG(G);
   const porP={}; L.forEach(v=>{const k=(v.produto||'Outro')+'|'+(v.un||'un'); const o=porP[k]||(porP[k]={p:v.produto||'Outro',un:v.un||'un',q:0,v:0}); o.q+=+v.qtd||0; o.v+=vTot(v);});
   const ps=Object.values(porP).sort((a,b)=>b.v-a.v);
