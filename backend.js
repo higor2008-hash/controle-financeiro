@@ -144,14 +144,103 @@
   /* Download de arquivo (PDF da Glicemia) direto pelo navegador */
   const downloads = { save: async ({ filename, data }) => { const u = URL.createObjectURL(data), a = document.createElement("a"); a.href = u; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000); } };
 
+  /* ---------- Acessos da Glicemia ---------- */
+  const css = document.createElement("style");
+  css.textContent = `.glpode{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px}.glpode li{padding-left:24px;position:relative}.glpode li:before{position:absolute;left:0;font-weight:700}.glpode .ok:before{content:"✓";color:var(--ok,#3fb950)}.glpode .no{opacity:.75}.glpode .no:before{content:"✕";color:var(--bad,#f85149)}
+.galog{display:grid;gap:4px;font-size:13px;max-height:260px;overflow:auto}#gaTbl td{vertical-align:middle}#gaTbl select{min-width:120px}
+@media (max-width:720px){#gaTbl thead{display:none}#gaTbl tr{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:10px 0;border-bottom:1px solid var(--line)}#gaTbl td{border:0;padding:0;text-align:left;justify-content:flex-start}#gaTbl td:first-child{grid-column:1/-1}#gaForm>.btn{width:100%}}`;
+  document.head.appendChild(css);
+  const glPainel = () => document.querySelector('[data-panel="glicemia"]');
+  const quando = t => t ? new Date(t).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit", hour: "2-digit", minute: "2-digit" }) : "nunca";
+  const dataBr = id => /^\d{4}-\d{2}-\d{2}$/.test(id || "") ? id.split("-").reverse().join("/") : (id || "");
+  // O convidado vê o que pode fazer na Glicemia.
+  function avisoConvidado(c, nivel, email) {
+    const p = glPainel(); if (!p) return;
+    const nome = (c && c.nome) || email, pode = nivel >= 2;
+    const d = document.createElement("div"); d.className = "card"; d.id = "glVoce";
+    d.innerHTML = `<h2>Olá, ${esc(nome)}</h2><p class="sub">Este acesso é só para a parte da Glicemia. O que você pode fazer:</p>
+      <ul class="glpode"><li class="ok">Ver todas as medições, a média e o gráfico</li><li class="ok">Gerar o PDF das medições</li>
+      <li class="${pode ? "ok" : "no"}">${pode ? "Lançar novas medições e corrigir as que já existem (botão “+ Nova medida” ou toque na medida)" : "Lançar ou corrigir medições: não liberado para você"}</li></ul>
+      <p class="sub" style="margin-top:6px">${pode ? "Tudo o que você lança fica registrado com o seu nome para o dono do site." : "Se precisar lançar medições, peça ao dono do site."}</p>`;
+    p.prepend(d);
+  }
+  // O dono cria e controla os acessos.
+  function painelAcessos() {
+    const p = glPainel(); if (!p) return;
+    const d = document.createElement("div"); d.className = "card"; d.id = "glAcessos";
+    d.innerHTML = `<div class="headrow"><div><h2>Acessos da Glicemia</h2><p class="sub">Pessoas que entram no site e veem só esta aba</p></div><button class="btn ghost small" type="button" id="gaAtualizar">Atualizar</button></div>
+      <div class="tbl" style="margin-top:10px"><table id="gaTbl"></table></div>
+      <form class="f" id="gaForm" style="margin-top:14px">
+        <label class="fld">Nome<input id="gaNome" maxlength="60" autocomplete="off" placeholder="Maria"></label>
+        <label class="fld">E-mail<input id="gaEmail" type="email" required maxlength="254" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="maria@email.com"></label>
+        <label class="fld">Senha<input id="gaSenha" type="text" minlength="6" maxlength="72" autocomplete="new-password" placeholder="mínimo 6"></label>
+        <label class="fld">Pode<select id="gaPode"><option value="0">Só ver</option><option value="1">Ver e lançar</option></select></label>
+        <button class="btn" type="submit">Criar acesso</button>
+      </form>
+      <div class="msg" id="gaMsg"></div>
+      <h3 style="margin:16px 0 6px;font-size:14px">Atividade recente</h3><div id="gaLog" class="galog"></div>`;
+    p.prepend(d);
+    const msg = (t, ok) => { const m = $("#gaMsg"); m.textContent = t; m.className = "msg " + (ok ? "ok" : "err"); };
+    async function carregarLista() {
+      const [l, a] = await Promise.all([sb.rpc("cf_glic_lista"), sb.rpc("cf_glic_atividade", { lim: 30 })]);
+      if (l.error) { d.hidden = true; return; }
+      d.hidden = false;
+      const t = $("#gaTbl");
+      t.innerHTML = !l.data.length ? `<tr><td class="sub">Nenhum acesso criado ainda. Preencha abaixo para criar.</td></tr>` :
+        `<thead><tr><th>Pessoa</th><th>Pode</th><th>Situação</th><th class="r">Acessos</th><th>Último acesso</th><th></th></tr></thead><tbody>` +
+        l.data.map(u => `<tr data-ga="${esc(u.user_id)}"><td><b>${esc(u.nome || u.email)}</b>${u.nome ? `<div class="sub">${esc(u.email)}</div>` : ""}</td>
+          <td><select data-gapode aria-label="O que pode"><option value="0"${u.pode_lancar ? "" : " selected"}>Só ver</option><option value="1"${u.pode_lancar ? " selected" : ""}>Ver e lançar</option></select></td>
+          <td><button class="btn small ${u.aprovado ? "ghost" : ""}" type="button" data-gaaprov="${u.aprovado ? 1 : 0}">${u.aprovado ? "Liberado · bloquear" : "Bloqueado · liberar"}</button></td>
+          <td class="r" style="font-family:var(--f-mono)">${+u.acessos || 0}</td><td>${esc(quando(u.ultimo))}</td>
+          <td><button class="btn ghost small" type="button" data-gadel>Remover</button></td></tr>`).join("") + `</tbody>`;
+      $("#gaLog").innerHTML = a.error || !a.data.length ? `<p class="sub">Nenhuma atividade ainda.</p>` :
+        a.data.map(x => `<div><span class="sub">${esc(quando(x.em))}</span> <b>${esc(x.quem || "?")}</b> ${esc(x.acao)}${x.detalhe ? ` a medida do dia ${esc(dataBr(x.detalhe))}` : ""}</div>`).join("");
+    }
+    d.addEventListener("click", async ev => {
+      const tr = ev.target.closest("[data-ga]"), uid = tr && tr.dataset.ga;
+      if (ev.target.id === "gaAtualizar") return carregarLista();
+      if (!uid) return;
+      if (ev.target.matches("[data-gaaprov]")) {
+        const r = await sb.rpc("cf_glic_salvar", { uid, p_aprovado: ev.target.dataset.gaaprov !== "1", p_pode_lancar: tr.querySelector("[data-gapode]").value === "1" });
+        if (r.error) msg("Não foi possível mudar. Tente de novo."); else carregarLista();
+      } else if (ev.target.matches("[data-gadel]")) {
+        if (!confirm("Tirar o acesso desta pessoa? As medições não são apagadas.")) return;
+        const r = await sb.rpc("cf_glic_remover", { uid });
+        if (r.error) msg("Não foi possível remover. Tente de novo."); else { msg("Acesso removido.", true); carregarLista(); }
+      }
+    });
+    d.addEventListener("change", async ev => {
+      if (!ev.target.matches("[data-gapode]")) return;
+      const tr = ev.target.closest("[data-ga]");
+      const r = await sb.rpc("cf_glic_salvar", { uid: tr.dataset.ga, p_aprovado: tr.querySelector("[data-gaaprov]").dataset.gaaprov === "1", p_pode_lancar: ev.target.value === "1" });
+      if (r.error) msg("Não foi possível mudar. Tente de novo."); else { msg("Alterado.", true); carregarLista(); }
+    });
+    $("#gaForm").onsubmit = async ev => {
+      ev.preventDefault();
+      const email = $("#gaEmail").value.trim(), senha = $("#gaSenha").value;
+      if (senha && senha.length < 6) return msg("A senha precisa ter pelo menos 6 caracteres.");
+      const r = await sb.rpc("cf_glic_criar", { p_email: email, p_senha: senha, p_nome: $("#gaNome").value, p_pode_lancar: $("#gaPode").value === "1" });
+      if (r.error) return msg(/inválido|já é o seu|senha/i.test(r.error.message || "") ? r.error.message : "Não foi possível criar o acesso. Tente de novo.");
+      msg(`Acesso criado. A pessoa entra neste site com ${email}${senha ? " e a senha que você digitou" : ""}.`, true);
+      $("#gaForm").reset(); carregarLista();
+    };
+    carregarLista();
+  }
+
   /* ---------- Início: o dono (cf_dono) vê tudo; convidado (cf_glic_acesso) só a Glicemia ---------- */
   let iniciado = false;
   async function iniciar(session) {
     if (iniciado) return; iniciado = true;
     const { data: dono, error } = await sb.rpc("cf_e_dono");
     if (error) { iniciado = false; return mostrar(titulo + `<p class="sub">Não foi possível conferir o seu acesso. Recarregue a página.</p>`); }
-    let nivelGlic = 0;
-    if (!dono) { const r = await sb.rpc("cf_glic_nivel"); nivelGlic = r.error ? 0 : +r.data || 0; }
+    let nivelGlic = 0, convidado = null;
+    if (!dono) {
+      // Registra o acesso e diz o que o convidado pode fazer.
+      const r = await sb.rpc("cf_glic_entrar");
+      if (!r.error && r.data) { convidado = r.data; nivelGlic = { lancar: 2, ver: 1 }[r.data.status] || 0; }
+      else { const n = await sb.rpc("cf_glic_nivel"); nivelGlic = n.error ? 0 : +n.data || 0; }
+    }
+    if (convidado && convidado.status === "bloqueado") { mostrar(titulo + `<p class="sub">O seu acesso à Glicemia está bloqueado no momento. Fale com o dono do site para liberar.</p><button class="btn" type="button" id="lgSair">Sair</button>`); $("#lgSair").onclick = sair; return; }
     if (!dono && !nivelGlic) { mostrar(titulo + `<p class="sub">O usuário ${esc(session.user.email)} não tem acesso a este site.</p><button class="btn" type="button" id="lgSair">Sair</button>`); $("#lgSair").onclick = sair; return; }
     // Convidado só de leitura: a recusa da base vira "invalid_argument", que a tela da Glicemia entende como "só ver".
     const dbUso = dono || nivelGlic >= 2 ? db : { ...db, doc: p => { const d = db.doc(p), trava = f => async (...a) => { try { return await f(...a); } catch (e) { if (e && e.code === "permission_denied") e.code = "invalid_argument"; throw e; } }; return { ...d, set: trava(d.set), delete: trava(d.delete) }; } };
@@ -160,6 +249,7 @@
     scr.hidden = true; document.body.classList.remove("locked");
     tempoReal();
     const s = document.createElement("script"); s.src = "app.js?v=" + (cfg.versao || "1"); document.body.appendChild(s);
+    if (dono) painelAcessos(); else avisoConvidado(convidado, nivelGlic, session.user.email);
     const hdr = $(".hdr-r");
     if (hdr) { const b = document.createElement("button"); b.className = "btn ghost small"; b.type = "button"; b.textContent = "Sair"; b.title = "Sair da conta " + session.user.email; b.onclick = sair; hdr.insertBefore(b, hdr.querySelector(".sync")); }
   }
