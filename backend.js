@@ -147,8 +147,6 @@
   /* ---------- Acessos da Glicemia ---------- */
   const css = document.createElement("style");
   css.textContent = `.glpode{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px}.glpode li{padding-left:24px;position:relative}.glpode li:before{position:absolute;left:0;font-weight:700}.glpode .ok:before{content:"✓";color:var(--ok,#3fb950)}.glpode .no{opacity:.75}.glpode .no:before{content:"✕";color:var(--bad,#f85149)}
-#glPedidos{position:fixed;left:50%;transform:translateX(-50%);bottom:84px;z-index:60;display:grid;gap:8px;width:min(480px,calc(100% - 24px))}.glped{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--accent);border-radius:var(--r);padding:12px 14px;box-shadow:0 10px 30px rgba(0,0,0,.45)}.glped>div{flex:1;min-width:0}
-.glespera{width:28px;height:28px;margin:6px auto 14px;border:3px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:glgira 1s linear infinite}@keyframes glgira{to{transform:rotate(360deg)}}
 .galog{display:grid;gap:4px;font-size:13px;max-height:260px;overflow:auto}#gaTbl td{vertical-align:middle}#gaTbl select{min-width:120px}
 @media (max-width:720px){#gaTbl thead{display:none}#gaTbl tr{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:10px 0;border-bottom:1px solid var(--line)}#gaTbl td{border:0;padding:0;text-align:left;justify-content:flex-start}#gaTbl td:first-child{grid-column:1/-1}#gaForm>.btn{width:100%}}`;
   document.head.appendChild(css);
@@ -168,35 +166,11 @@
     p.prepend(d);
     $("#glTrocaSenha").onclick = () => formSenha(() => abrirApp(null), () => abrirApp(null));
   }
-  // O dono vê os pedidos de entrada em qualquer aba e aprova um por um.
-  function vigiarPedidos() {
-    const t = document.createElement("div"); t.id = "glPedidos"; t.setAttribute("role", "status"); t.hidden = true; document.body.appendChild(t);
-    const tituloBase = document.title; let ultimo = "";
-    async function ver() {
-      const r = await sb.rpc("cf_glic_pedidos");
-      const L = r.error ? [] : r.data || [], chave = L.map(x => x.id).join(",");
-      if (chave !== ultimo) {
-        ultimo = chave;
-        t.hidden = !L.length;
-        t.innerHTML = L.map(x => `<div class="glped" data-ped="${esc(x.id)}"><div><b>${esc(x.quem)}</b> quer entrar na Glicemia<div class="sub">pedido às ${esc(new Date(x.criado_em).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }))}</div></div><button class="btn small" type="button" data-pedok>Aprovar</button><button class="btn ghost small" type="button" data-pedno>Recusar</button></div>`).join("");
-        document.title = (L.length ? `(${L.length}) ` : "") + tituloBase;
-      }
-      setTimeout(ver, document.hidden ? 20000 : 6000);
-    }
-    t.addEventListener("click", async ev => {
-      const el = ev.target.closest("[data-ped]"); if (!el || !ev.target.matches("button")) return;
-      el.querySelectorAll("button").forEach(b => b.disabled = true);
-      await sb.rpc("cf_glic_decidir", { pid: +el.dataset.ped, aprovar: ev.target.matches("[data-pedok]") });
-      ultimo = "?"; el.remove(); if (!t.children.length) t.hidden = true;
-      if (window.__glRecarregar) window.__glRecarregar();
-    });
-    ver();
-  }
   // O dono cria e controla os acessos.
   function painelAcessos() {
     const p = glPainel(); if (!p) return;
     const d = document.createElement("div"); d.className = "card"; d.id = "glAcessos";
-    d.innerHTML = `<div class="headrow"><div><h2>Acessos da Glicemia</h2><p class="sub">Pessoas que entram no site e veem só esta aba</p></div><button class="btn ghost small" type="button" id="gaAtualizar">Atualizar</button></div>
+    d.innerHTML = `<div class="headrow"><div><h2>Acessos da Glicemia</h2><p class="sub">Pessoas que entram no site e veem só esta aba. Endereço para passar: <b id="gaSite"></b></p></div><button class="btn ghost small" type="button" id="gaAtualizar">Atualizar</button></div>
       <div class="tbl" style="margin-top:10px"><table id="gaTbl"></table></div>
       <form class="f" id="gaForm" style="margin-top:14px">
         <label class="fld">Nome<input id="gaNome" maxlength="60" autocomplete="off" placeholder="Maria"></label>
@@ -208,6 +182,7 @@
       <div class="msg" id="gaMsg"></div>
       <h3 style="margin:16px 0 6px;font-size:14px">Atividade recente</h3><div id="gaLog" class="galog"></div>`;
     p.prepend(d);
+    $("#gaSite").textContent = location.origin + location.pathname;
     const msg = (t, ok) => { const m = $("#gaMsg"); m.textContent = t; m.className = "msg " + (ok ? "ok" : "err"); };
     async function carregarLista() {
       const [l, a] = await Promise.all([sb.rpc("cf_glic_lista"), sb.rpc("cf_glic_atividade", { lim: 30 })]);
@@ -249,55 +224,41 @@
       if (senha && senha.length < 6) return msg("A senha precisa ter pelo menos 6 caracteres.");
       const r = await sb.rpc("cf_glic_criar", { p_email: email, p_senha: senha, p_nome: $("#gaNome").value, p_pode_lancar: $("#gaPode").value === "1" });
       if (r.error) return msg(/inválido|já é o seu|senha/i.test(r.error.message || "") ? r.error.message : "Não foi possível criar o acesso. Tente de novo.");
-      msg(`Acesso criado. A pessoa entra neste site com ${email}${senha ? " e a senha que você digitou" : ""}.`, true);
+      const site = location.origin + location.pathname, texto = `Seu acesso à Glicemia:\nSite: ${site}\nE-mail: ${email}${senha ? `\nSenha: ${senha}` : ""}\nNo primeiro acesso você pode trocar a senha.`;
+      msg(`Acesso criado. Mande para a pessoa o site ${site}, o e-mail ${email}${senha ? " e a senha" : ""}.`, true);
+      const c = document.createElement("button"); c.type = "button"; c.className = "btn small"; c.style.marginLeft = "8px"; c.textContent = "Copiar mensagem para a pessoa";
+      c.onclick = async () => { try { await navigator.clipboard.writeText(texto); c.textContent = "Copiado"; } catch (e) { prompt("Copie a mensagem:", texto); } };
+      $("#gaMsg").appendChild(c);
       $("#gaForm").reset(); carregarLista();
     };
-    window.__glRecarregar = carregarLista;
     carregarLista();
   }
 
   /* ---------- Início: o dono (cf_dono) vê tudo; convidado (cf_glic_acesso) só a Glicemia ---------- */
   let iniciado = false;
-  async function sairConvidado() { try { await sb.rpc("cf_glic_sair"); } catch (e) {} sair(); }
+  const sairConvidado = sair;
   const botaoSair = (id = "lgSair") => `<button class="btn ghost" type="button" id="${id}">Sair</button>`;
   async function iniciar(session) {
     if (iniciado) return; iniciado = true;
     const { data: dono, error } = await sb.rpc("cf_e_dono");
     if (error) { iniciado = false; return mostrar(titulo + `<p class="sub">Não foi possível conferir o seu acesso. Recarregue a página.</p>`); }
     if (dono) return abrirApp(session, true, 2, null);
-    // Convidado: cada entrada vira um pedido que o dono aprova.
+    // Convidado: registra a entrada e diz o que ele pode fazer.
     const r = await sb.rpc("cf_glic_entrar");
     if (r.error || !r.data) { const n = await sb.rpc("cf_glic_nivel"); const nv = n.error ? 0 : +n.data || 0; return nv ? abrirApp(session, false, nv, null) : semAcesso(session); }
     tratarPedido(session, r.data);
   }
   function semAcesso(session) { mostrar(titulo + `<p class="sub">O usuário ${esc(session.user.email)} não tem acesso a este site.</p>${botaoSair()}`); $("#lgSair").onclick = sair; }
   function tratarPedido(session, c) {
-    if (c.status === "sem") return semAcesso(session);
     if (c.status === "bloqueado") { mostrar(titulo + `<p class="sub">O seu acesso à Glicemia está bloqueado no momento. Fale com o dono do site para liberar.</p>${botaoSair()}`); $("#lgSair").onclick = sair; return; }
-    mostrar(titulo + `<p class="sub"><b>Pedido de entrada enviado.</b><br>Aguarde o dono do site aprovar a sua entrada. Esta tela abre sozinha quando ele aprovar.</p><div class="glespera" aria-hidden="true"></div>${botaoSair()}`);
-    $("#lgSair").onclick = sairConvidado;
-    let parado = false;
-    const conferir = async () => {
-      if (parado) return;
-      const s = await sb.rpc("cf_glic_situacao", { pid: c.pedido });
-      const st = s.data && s.data.status;
-      if (st === "aprovado") { parado = true; return perguntarSenha(session, { ...c, ...s.data }); }
-      if (st === "recusado" || st === "encerrado") {
-        parado = true;
-        mostrar(titulo + `<p class="sub">${st === "recusado" ? "A sua entrada foi recusada pelo dono do site." : "Esta entrada foi encerrada (o site foi aberto em outro lugar ou o acesso mudou)."}</p><button class="btn" type="button" id="lgDeNovo">Pedir para entrar de novo</button>${botaoSair()}`);
-        $("#lgSair").onclick = sairConvidado;
-        $("#lgDeNovo").onclick = async () => { const n = await sb.rpc("cf_glic_entrar"); if (!n.error && n.data) tratarPedido(session, n.data); };
-        return;
-      }
-      setTimeout(conferir, 4000);
-    };
-    setTimeout(conferir, 3000);
+    if (c.status !== "ver" && c.status !== "lancar") return semAcesso(session);
+    perguntarSenha(session, { ...c, pode_lancar: c.status === "lancar" });
   }
   // No primeiro acesso a pessoa escolhe: troca a senha que recebeu ou continua com ela.
   function perguntarSenha(session, c) {
     const nivel = c.pode_lancar ? 2 : 1, meta = session.user.user_metadata || {};
     if (meta.senha_ok) return abrirApp(session, false, nivel, c);
-    mostrar(titulo + `<p class="sub"><b>Entrada aprovada.</b><br>Você está usando a senha que recebeu. Quer criar uma senha só sua?</p>
+    mostrar(titulo + `<p class="sub">Você está usando a senha que recebeu. Quer criar uma senha só sua?</p>
       <button class="btn" type="button" id="psTrocar">Trocar a senha</button><button class="btn ghost" type="button" id="psManter">Continuar com a mesma senha</button><p class="msg err" role="alert"></p>`);
     $("#psManter").onclick = async () => { await sb.auth.updateUser({ data: { senha_ok: true } }); abrirApp(session, false, nivel, c); };
     $("#psTrocar").onclick = () => formSenha(() => abrirApp(session, false, nivel, c), () => perguntarSenha(session, c));
@@ -328,7 +289,7 @@
     scr.hidden = true; document.body.classList.remove("locked");
     tempoReal();
     const s = document.createElement("script"); s.src = "app.js?v=" + (cfg.versao || "1"); document.body.appendChild(s);
-    if (dono) { painelAcessos(); vigiarPedidos(); } else avisoConvidado(convidado, nivelGlic, session.user.email);
+    if (dono) painelAcessos(); else avisoConvidado(convidado, nivelGlic, session.user.email);
     const hdr = $(".hdr-r");
     if (hdr) { const b = document.createElement("button"); b.className = "btn ghost small"; b.type = "button"; b.textContent = "Sair"; b.title = "Sair da conta " + session.user.email; b.onclick = dono ? sair : sairConvidado; hdr.insertBefore(b, hdr.querySelector(".sync")); }
   }
