@@ -1447,11 +1447,18 @@ function go(t){ if(t==='fiado'){t='chacara'; chSeg('fiado');} if(!TABS.includes(
   document.querySelectorAll('[data-panel]').forEach(p=>p.hidden=p.dataset.panel!==t);
   $('#kpis').hidden=(t==='contas'||t==='cartoes'||t==='chacara'||t==='veiculos'||t==='luzagua'||t==='glicemia');
   if(t==='glicemia') glRender();
+  secClose(); const mx=document.querySelector(`nav.tabs .mx[data-tab="${t}"] .ts`); const nm=$('#navMore'); nm.classList.toggle('on',!!mx); $('#navMoreTxt').textContent=mx?mx.textContent:'Mais'; go.dots=go.dots||nm.querySelector('.ic').innerHTML; nm.querySelector('.ic').innerHTML=mx?mx.parentNode.querySelector('.ic').innerHTML:go.dots;
   try{localStorage.setItem('carteira-tab',t);}catch(e){}
   go.cur=t; if(go.ready) try{renderVenc(parcelas());}catch(e){}
   if(matchMedia('(max-width:640px)').matches&&go.ready) window.scrollTo({top:0});
   go.ready=true;
 }
+/* Celular: barra com as seções principais + "Mais" abre todas em quadros grandes */
+$('#secGrid').innerHTML=[...document.querySelectorAll('nav.tabs [data-tab]')].map(b=>`<button type="button" data-tab="${b.dataset.tab}" aria-selected="false">${b.querySelector('.ic').innerHTML}<span>${b.querySelector('.tl').textContent}</span></button>`).join('');
+function secClose(){ const s=$('#secSheet'); if(s.hidden) return; s.hidden=true; $('#navMore').setAttribute('aria-expanded','false'); if(secClose.back){secClose.back=false; $('#navMore').focus();} }
+$('#navMore').addEventListener('click',()=>{ const s=$('#secSheet'); s.hidden=false; $('#navMore').setAttribute('aria-expanded','true'); (s.querySelector('[aria-selected="true"]')||s.querySelector('#secGrid button')).focus(); });
+$('#secSheet').addEventListener('click',e=>{ if(e.target.closest('[data-close]')){secClose.back=true; secClose();} });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&!$('#secSheet').hidden){secClose.back=true; secClose();} });
 document.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.tab)));
 $('#ovKpis').addEventListener('keydown',e=>{const k=e.target.closest('[data-goto]'); if(k&&(e.key==='Enter'||e.key===' ')){e.preventDefault();go(k.dataset.goto);}});
 let start=(location.hash||'').slice(1); if(!TABS.includes(start)){try{start=localStorage.getItem('carteira-tab')||'resumo';}catch(e){start='resumo';}}
