@@ -674,6 +674,7 @@ function renderContas(){
   const mx=Math.max(...rows.map(r=>r.v),1);
   $('#ctBars').innerHTML=rows.some(r=>r.v>0)?rows.map(r=>`<div class="bar" style="grid-template-columns:minmax(0,120px) minmax(0,1fr) auto;cursor:pointer" data-ctym="${r.ym}" title="Abrir ${ymNome(r.ym)}"><span style="text-transform:capitalize;white-space:nowrap">${MESES[+r.ym.slice(5)-1]} ${r.ym.slice(2,4)}</span><div class="track"><div class="fill" style="width:${(r.v/mx*100).toFixed(1)}%"></div></div><span class="num" style="text-align:right;white-space:nowrap">${R(r.v)}</span></div>`).join(''):'<p class="empty">Nenhuma conta nos próximos meses.</p>';
   $('#tblRec').innerHTML=rec.length?`<tbody>${rec.map(r=>`<tr><td>${esc(r.fonte)}</td><td class="n">${R(+r.valor)}</td><td style="width:1%"><span class="acts"><button class="btn ghost small" data-ed="receitas" data-id="${esc(r.id)}">Editar</button><button class="btn danger small" data-del="receitas" data-id="${esc(r.id)}">Excluir</button></span></td></tr>`).join('')}</tbody><tfoot><tr><td>Total</td><td class="n">${R(rt)}</td><td></td></tr></tfoot>`:`<tbody><tr><td class="empty">Nenhuma receita em ${ymNome(ctYM)}.</td></tr></tbody>`;
+  const mp=$('#mdPis'); if(mp&&document.activeElement!==mp) mp.value=S.config.pis||'';
   $('#fontesList').innerHTML=[...new Set(S.receitas.map(r=>r.fonte))].map(f=>`<option value="${esc(f)}">`).join('');
 }
 $('#ctPrev').addEventListener('click',()=>{ctYM=ymAdd(ctYM,-1);renderContas();});
@@ -741,6 +742,16 @@ $('#fRec').addEventListener('submit',async e=>{
   try{ for(let i=0;i<n;i++) await store.add('receitas',{mes:ymAdd(ctYM,i),fonte,valor:v});
     flash(m,`${fonte} lançada em ${ymNome(ctYM)}${n>1?(n===2?' e no mês seguinte':' e nos '+(n-1)+' meses seguintes'):''}.`,true); $('#rFonte').value='';$('#rValor').value='';$('#rRep').value='1';
   }catch(err){flash(m,errTxt(err));}
+});
+
+$('#fMd').addEventListener('submit',async e=>{
+  e.preventDefault(); const m=$('#mMd'); const v=$('#mdPis').value.trim();
+  if(v&&!/^[0-9.\-\s]{11,20}$/.test(v)){flash(m,'O PIS tem 11 números.');return;}
+  try{ await store.put('config','geral',{...S.config,pis:v}); flash(m,v?'PIS salvo.':'PIS apagado.',true); }catch(err){flash(m,errTxt(err));}
+});
+$('#mdCopiar').addEventListener('click',()=>{const m=$('#mMd'), v=S.config.pis||'';
+  if(!v){flash(m,'Salve o PIS primeiro.');return;}
+  try{navigator.clipboard&&navigator.clipboard.writeText(v).then(()=>flash(m,'PIS copiado.',true)).catch(()=>flash(m,'Não deu para copiar: '+v));}catch(err){flash(m,'Não deu para copiar: '+v);}
 });
 
 /* ---------- Editar lançamentos ---------- */

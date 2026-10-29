@@ -91,7 +91,7 @@ body.locked>*:not(.lock){visibility:hidden}
 .lockbox h2{margin:0}
 .lockbox input{font-size:24px!important;text-align:center;letter-spacing:.4em;font-family:var(--f-mono)}
 .hdr-r{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:flex-end}
-body.priv .v,body.priv .num,body.priv td.n,body.priv .kpi .s,body.priv .ckpi .s,body.priv .donut text,body.priv #bancoSeg .sub2,body.priv #chartMes text,body.priv #ovChart text,body.priv #ovChac text,body.priv .ckpis .v{filter:blur(7px);user-select:none}
+body.priv .v,body.priv .num,body.priv td.n,body.priv .kpi .s,body.priv .ckpi .s,body.priv .donut text,body.priv #bancoSeg .sub2,body.priv #chartMes text,body.priv #ovChart text,body.priv #ovChac text,body.priv .ckpis .v,body.priv #mdPis{filter:blur(7px);user-select:none}
 .vbanner{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;margin-bottom:18px;padding:12px 16px;border-radius:var(--r);border:1px solid rgba(247,181,56,.45);background:rgba(247,181,56,.08)}
 .tag{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:999px;margin-left:4px}.tag.late{background:rgba(255,92,116,.16);color:var(--down)}
 .vbanner.late{border-color:rgba(255,92,116,.5);background:rgba(255,92,116,.08)}
@@ -702,6 +702,16 @@ html,body{margin:0;background:var(--bg)}
           <button class="btn" type="submit">Lançar receita</button>
         </form>
         <div class="msg" id="mRec"></div>
+      </div>
+      <div class="card" id="mdCard">
+        <h2>Meus dados</h2>
+        <p class="sub">Números que você precisa ter à mão</p>
+        <form class="f" id="fMd">
+          <label class="fld wide">PIS/PASEP<input id="mdPis" inputmode="numeric" autocomplete="off" maxlength="20" placeholder="000.00000.00-0"></label>
+          <button class="btn" type="submit">Salvar</button>
+          <button class="btn ghost" type="button" id="mdCopiar">Copiar</button>
+        </form>
+        <div class="msg" id="mMd"></div>
       </div>
     </div>
     <div class="card">
