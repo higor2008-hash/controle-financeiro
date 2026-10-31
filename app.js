@@ -877,7 +877,7 @@ function renderVendas(){
   const ds=Object.entries(dev).map(([k,l])=>[k,l.sort((a,b)=>(a.data||'').localeCompare(b.data||'')),l.reduce((t,v)=>t+vTot(v),0)]).sort((a,b)=>b[2]-a[2]);
   const totF=ds.reduce((t,x)=>t+x[2],0);
   $('#fiadoTot').innerHTML=ds.length?`<span>Total a receber</span><b class="num gold">${R(totF)}</b><span class="sub2">${ds.length} cliente${ds.length===1?'':'s'}</span>`:'';
-  $('#tblDeve').innerHTML=ds.length?ds.map(([k,l,t])=>`<div class="fic"><div class="hd"><b>${esc(k)}</b><span class="num gold">${R(t)}</span><button class="btn ghost small" data-quita="${esc(k)}">Recebi tudo</button></div>
+  $('#tblDeve').innerHTML=ds.length?ds.map(([k,l,t])=>`<div class="fic"><div class="hd"><b>${esc(k)}</b><span class="num gold">${R(t)}</span><span class="acts"><button class="btn small" data-fiacli="${esc(k==='Sem nome'?'':k)}" aria-label="Adicionar dívida para ${esc(k)}">+ Dívida</button><button class="btn ghost small" data-quita="${esc(k)}">Recebi tudo</button></span></div>
     <ul>${l.map(v=>`<li><span class="num">${fmtD(v.data).slice(0,5)}</span><span class="st ${/leite/i.test(v.produto||'')?'leite':'queijo'}">${esc(v.produto||'')}</span><span class="num v">${R(vTot(v))}</span><span class="acts"><button class="btn small" data-pagou="${esc(v.id)}">Pagou</button><button class="btn ghost small" data-ed="vendas" data-id="${esc(v.id)}">Editar</button><button class="btn danger small" data-del="vendas" data-id="${esc(v.id)}">Excluir</button></span></li>`).join('')}</ul></div>`).join('')
     :'<p class="empty">Ninguém devendo.</p>';
   const CL=[...(S.clientes||[])].sort((a,b)=>(a.nome||'').localeCompare(b.nome||'','pt'));
@@ -939,8 +939,10 @@ $('#fCli').addEventListener('submit',async e=>{
   try{await store.add('clientes',{nome,telefone:$('#clTel').value.trim().slice(0,30),endereco:$('#clEnd').value.trim().slice(0,120),produto:$('#clProd').value}); flash(m,nome+' cadastrado.',true); ['clNome','clTel','clEnd'].forEach(i=>$('#'+i).value=''); $('#clProd').value='';}
   catch(err){flash(m,errTxt(err));}
 });
-document.addEventListener('click',e=>{const b=e.target.closest('[data-fiacli]'); if(!b) return; const c=(S.clientes||[]).find(x=>x.nome===b.dataset.fiacli);
-  $('#fiCli').value=b.dataset.fiacli; if(c&&c.produto) $('#fiProd').value=c.produto; $('#fFiado').scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(()=>$('#fiValor').focus(),300);});
+document.addEventListener('click',e=>{const b=e.target.closest('[data-fiacli]'); if(!b) return; const nm=b.dataset.fiacli, n=nm.trim().toLowerCase(), c=(S.clientes||[]).find(x=>(x.nome||'').trim().toLowerCase()===n);
+  const ult=(S.vendas||[]).filter(v=>v.valor!=null&&(v.cliente||'').trim().toLowerCase()===n).sort((a,b)=>(b.data||'').localeCompare(a.data||''))[0];
+  const pr=(c&&c.produto)||(ult&&ult.produto); if(pr&&[...$('#fiProd').options].some(o=>o.value===pr)) $('#fiProd').value=pr;
+  $('#fiCli').value=nm; $('#fiData').value=today(); $('#fiValor').value=''; $('#fFiado').scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(()=>$('#fiValor').focus(),300);});
 $('#fiCli').addEventListener('change',()=>{const c=(S.clientes||[]).find(x=>(x.nome||'').toLowerCase()===$('#fiCli').value.trim().toLowerCase()); if(c&&c.produto) $('#fiProd').value=c.produto;});
 document.addEventListener('click',async e=>{const b=e.target.closest('[data-pagou]'); if(!b) return;
   const v=S.vendas.find(x=>x.id===b.dataset.pagou); if(!v) return; const {id,...d}=v; b.disabled=true;
