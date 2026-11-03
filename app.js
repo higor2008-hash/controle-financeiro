@@ -181,6 +181,9 @@ function posicoes(V){
   list.sort((a,b)=>b.valor-a.valor);
   return {list,total,custo:list.reduce((s,x)=>s+x.custo,0),realizado:Object.values(p).reduce((s,x)=>s+x.realizado,0)};
 }
+function qtdEm(V,t,data){let q=0; for(const o of V.ops) if(o.ticker===t&&(!data||(o.data||'')<=data)) q+=(o.tipo==='venda'?-1:1)*(+o.qtd||0); return q>1e-9?q:0;}
+function qtdPag(V,t,data){let q=qtdEm(V,t,data); if(q) return [q,data]; const ds=V.ops.filter(o=>o.ticker===t&&o.tipo!=='venda').map(o=>o.data||'').sort(); if(!ds.length) return [0,data]; return [qtdEm(V,t,ds[0]),ds[0]];}
+function porAcao(V,d){const c=clsOf(V,d.ticker); if(!isCot(c)) return null; const q=qtdPag(V,d.ticker,d.data)[0]; return q?(+d.valor||0)/q:null;}
 function divs12(V){const lim=new Date();lim.setFullYear(lim.getFullYear()-1);const l=lim.toISOString().slice(0,10);return V.divs.filter(d=>(d.data||'')>l);}
 function ranking(V,P){
   const taxa=(+V.config.taxaBazin||6)/100;
@@ -321,6 +324,7 @@ function render(){
   const pa=Object.entries(porAtivo).sort((a,b)=>b[1].a12-a[1].a12);
   $('#tblDivAtivo').innerHTML=`<thead><tr><th>Ativo</th><th class="n">12 meses</th><th class="n">Total</th><th class="n">Yield on cost</th></tr></thead><tbody>${pa.length?pa.map(([t,x])=>`<tr><td><span class="tk">${esc(nomeOf(V,t))}</span> ${clsPill(clsOf(V,t))}</td><td class="n gold">${R(x.a12)}</td><td class="n">${R(x.tot)}</td><td class="n">${custoTk[t]?PCT(x.a12/custoTk[t]):'—'}</td></tr>`).join(''):'<tr><td colspan="4" class="empty">Nenhum provento lançado.</td></tr>'}</tbody>`;
 
+  renderCmp(V,P,d12);
   $('#ativosList').innerHTML=S.ativos.map(a=>`<option value="${esc(a.ticker)}">${esc((a.nome||a.ticker)+' · '+(MODS[a.classe]||MODS.outro).l)}</option>`).join('');
   renderHist(V,demo);
   renderCartoes(); renderContas(); renderVenc(parcelas()); renderOv(P.total); renderVendas(); renderVeic(); renderUa();
@@ -342,9 +346,58 @@ function renderHist(V,demo){
     $('#tblHist').innerHTML=`<thead><tr><th>Data</th><th>Tipo</th><th>Ativo</th><th class="n">Qtd</th><th class="n">Preço</th><th class="n">Total</th><th></th></tr></thead><tbody>${rows.length?rows.map(o=>`<tr><td class="num">${fmtD(o.data)}</td><td>${isCot(clsOf(V,o.ticker))?(o.tipo==='venda'?'<span class="pill bad">Venda</span>':'<span class="pill good">Compra</span>'):(o.tipo==='venda'?'<span class="pill bad">Resgate</span>':'<span class="pill good">Aplicação</span>')}</td><td><span class="tk">${esc(nomeOf(V,o.ticker))}</span> ${clsPill(clsOf(V,o.ticker))}</td><td class="n">${isCot(clsOf(V,o.ticker))?NQ.format(o.qtd):'—'}</td><td class="n">${isCot(clsOf(V,o.ticker))?R(+o.preco):'—'}</td><td class="n">${R(o.qtd*o.preco+(+o.taxa||0)*(o.tipo==='venda'?-1:1))}</td><td>${del('compras',o.id)}</td></tr>`).join(''):'<tr><td colspan="7" class="empty">Nada lançado.</td></tr>'}</tbody>`;
   } else {
     const rows=[...V.divs].sort((a,b)=>(b.data||'').localeCompare(a.data||''));
-    $('#tblHist').innerHTML=`<thead><tr><th>Data</th><th>Tipo</th><th>Ativo</th><th class="n">Valor</th><th></th></tr></thead><tbody>${rows.length?rows.map(d=>`<tr><td class="num">${fmtD(d.data)}</td><td>${esc(d.tipo||'Dividendo')}</td><td class="tk">${esc(nomeOf(V,d.ticker))}</td><td class="n gold">${R(+d.valor)}</td><td>${del('dividendos',d.id)}</td></tr>`).join(''):'<tr><td colspan="5" class="empty">Nada lançado.</td></tr>'}</tbody>`;
+    $('#tblHist').innerHTML=`<thead><tr><th>Data</th><th>Tipo</th><th>Ativo</th><th class="n">Valor</th><th class="n">Por ação</th><th></th></tr></thead><tbody>${rows.length?rows.map(d=>`<tr><td class="num">${fmtD(d.data)}</td><td>${esc(d.tipo||'Dividendo')}</td><td class="tk">${esc(nomeOf(V,d.ticker))}</td><td class="n gold">${R(+d.valor)}</td><td class="n">${(()=>{const pa=porAcao(V,d);return pa?R4(pa):'—';})()}</td><td>${del('dividendos',d.id)}</td></tr>`).join(''):'<tr><td colspan="6" class="empty">Nada lançado.</td></tr>'}</tbody>`;
   }
 }
+function renderCmp(V,P,d12){
+  const taxa=(+V.config.taxaBazin||6)/100; $('#cmpTaxa').textContent=NQ.format(taxa*100);
+  const ok=['acao','fii','fiagro','bdr','etf'];
+  const rows=P.list.filter(x=>ok.includes(x.classe)).map(x=>{
+    const ds=V.divs.filter(d=>d.ticker===x.ticker).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+    const ult=ds[0]?{v:porAcao(V,ds[0]),d:ds[0].data}:null;
+    let pa12=d12.filter(d=>d.ticker===x.ticker).reduce((s,d)=>s+(porAcao(V,d)||0),0), fonte='lanc';
+    if(!pa12&&x.a.dpa!=null&&x.a.dpa!==''&&+x.a.dpa>0){pa12=+x.a.dpa;fonte='manual';}
+    const dyHoje=x.cot&&pa12?pa12/x.cot:null, yoc=x.pm&&pa12?pa12/x.pm:null;
+    const teto=pa12?pa12/taxa:null, marg=teto&&x.cot?teto/x.cot-1:null;
+    return {x,ult,pa12,fonte,dyHoje,yoc,teto,marg,n:ds.length};
+  }).sort((a,b)=>(b.marg??-9)-(a.marg??-9));
+  const sinal=r=>{
+    if(!r.x.cot) return '<span class="pill na">Sem cotação</span>';
+    if(!r.pa12) return '<span class="pill na">Sem proventos</span>';
+    if(r.marg>=0.1) return '<span class="pill good">Abaixo do teto</span>';
+    if(r.marg>=-0.1) return '<span class="pill mid">Perto do teto</span>';
+    return '<span class="pill bad">Acima do teto</span>';
+  };
+  const nota=r=>{
+    const x=r.x; const t=[];
+    if(x.cot&&x.pm) t.push(x.cot<x.pm?`Hoje está ${PCT(1-x.cot/x.pm)} abaixo do seu preço médio: comprar mais baixa o seu PM.`:`Hoje está ${PCT(x.cot/x.pm-1)} acima do seu preço médio: comprar mais sobe o seu PM.`);
+    if(r.dyHoje!=null&&r.yoc!=null) t.push(`Cada R$ 100 comprados hoje renderiam cerca de ${R(r.dyHoje*100)} por ano em proventos (no seu PM rendem ${R(r.yoc*100)}).`);
+    if(r.fonte==='manual') t.push('Proventos/ação de 12m digitados em Onde aportar.');
+    return t;
+  };
+  const sel=$('#cmpSel'); let cur=sel.value; if(!rows.some(r=>r.x.ticker===cur)) cur=(rows.find(r=>r.x.cot&&r.pa12)||rows[0]||{x:{}}).x.ticker||'';
+  sel.innerHTML=rows.map(r=>`<option value="${esc(r.x.ticker)}" ${r.x.ticker===cur?'selected':''}>${esc(r.x.nome)}</option>`).join('');
+  const r=rows.find(r=>r.x.ticker===cur);
+  $('#cmpDet').innerHTML=r?`<div class="headrow"><div><span class="tk">${esc(r.x.nome)}</span> ${clsPill(r.x.classe)} ${sinal(r)}</div><button class="btn ghost small" data-edit="${esc(r.x.ticker)}">Atualizar cotação</button></div>
+    <div class="cg"><div>Você tem<b>${NQ.format(r.x.qtd)}</b></div><div>Seu preço médio<b>${r.x.pm?R(r.x.pm):'—'}</b></div><div>Cotação hoje<b>${r.x.cot?R(r.x.cot):'—'}</b></div>
+    <div>Último provento por ação<b class="gold">${r.ult&&r.ult.v?R4(r.ult.v):'—'}</b>${r.ult?fmtD(r.ult.d):''}</div><div>Proventos por ação em 12 meses<b>${r.pa12?R4(r.pa12):'—'}</b></div>
+    <div>Rende sobre o seu PM<b>${r.yoc!=null?PCT(r.yoc):'—'}</b>ao ano</div><div>Rende comprando hoje<b>${r.dyHoje!=null?PCT(r.dyHoje):'—'}</b>ao ano</div>
+    <div>Preço-teto (Bazin)<b>${r.teto?R(r.teto):'—'}</b>${r.marg!=null?`<span class="${cls(r.marg)}">${r.marg>=0?'+':''}${PCT(r.marg)} vs hoje</span>`:''}</div></div>
+    <ul>${[...nota(r),!r.x.cot?'Sem cotação de hoje: toque em Atualizar cotação para comparar.':'',!r.pa12?'Ainda não há provento lançado nos últimos 12 meses para este ativo.':'',r.marg!=null?(r.marg>=0?`A cotação está abaixo do preço-teto: comprando hoje, o rendimento passa dos ${NQ.format(+V.config.taxaBazin||6)}% ao ano que você usa como referência.`:`A cotação está acima do preço-teto: comprando hoje, o rendimento fica abaixo dos ${NQ.format(+V.config.taxaBazin||6)}% ao ano que você usa como referência.`):''].filter(Boolean).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`:'<p class="empty">Nenhuma ação, FII ou ETF na carteira.</p>';
+  $('#tblCmp').innerHTML=`<thead><tr><th>Ativo</th><th class="n">Cotação hoje</th><th class="n">Provento/ação 12m</th><th class="n">Rende no seu PM</th><th class="n">Rende comprando hoje</th><th class="n">Preço-teto</th><th>Comparação</th></tr></thead><tbody>${rows.length?rows.map(r=>`<tr data-cmp="${esc(r.x.ticker)}"><td><span class="tk">${esc(r.x.nome)}</span></td><td class="n">${r.x.cot?R(r.x.cot):'—'}</td><td class="n">${r.pa12?R4(r.pa12):'—'}</td><td class="n">${r.yoc!=null?PCT(r.yoc):'—'}</td><td class="n">${r.dyHoje!=null?PCT(r.dyHoje):'—'}</td><td class="n">${r.teto?R(r.teto):'—'}</td><td>${sinal(r)}</td></tr>`).join(''):''}</tbody>`;
+}
+$('#cmpSel').addEventListener('change',()=>render());
+$('#tblCmp').addEventListener('click',e=>{const tr=e.target.closest('[data-cmp]'); if(!tr) return; $('#cmpSel').value=tr.dataset.cmp; render(); $('#cmpCard').scrollIntoView({behavior:'smooth',block:'start'});});
+function divHint(){
+  const h=$('#dHint'); if(!h) return; const raw=$('#dTk').value.trim(), v=+$('#dValor').value;
+  const V=view(); const a=V.ativos.find(x=>x.ticker===up(raw)||x.ticker===slug(raw)||(x.nome&&x.nome===raw)); const t=a?a.ticker:up(raw);
+  if(!raw||!isCot(clsOf(V,t))){h.textContent='';return;}
+  const dt=$('#dData').value||today(); const [q,du]=qtdPag(V,t,dt);
+  if(!q){h.textContent=`Não achei ${a&&a.nome||t} na carteira em ${fmtD(dt)}, então não dá para dividir por ação.`;return;}
+  h.textContent=v>0?`≈ ${R4(v/q)} por ação/cota (${R(v)} ÷ ${NQ.format(q)} ${du===dt?'que você tinha em '+fmtD(dt):'do seu primeiro lançamento, em '+fmtD(du)}).`:`Você tinha ${NQ.format(q)} em ${fmtD(du)}. Digite o valor total para ver quanto dá por ação.`;
+}
+['dTk','dData','dValor'].forEach(id=>{$('#'+id).addEventListener('input',divHint);$('#'+id).addEventListener('change',divHint);});
+function R4(v){return 'R$ '+(+v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:4});}
 function fmtD(s){return s?s.slice(8,10)+'/'+s.slice(5,7)+'/'+s.slice(0,4):'—';}
 
 /* ---------- Simulador ---------- */
@@ -424,7 +477,7 @@ $('#fDiv').addEventListener('submit',async e=>{
   const t=exist?exist.ticker:up(raw);
   if(!/^[A-Z0-9.\-]{2,40}$/.test(t)){flash(m,'Escolha um ativo da lista ou digite o ticker.');return;}
   if(!(v>0)){flash(m,'Informe o valor recebido.');return;}
-  try{ await store.add('dividendos',{ticker:t,tipo:$('#dTipo').value,data:$('#dData').value||today(),valor:v}); flash(m,`${R(v)} de ${exist&&exist.nome||t} lançado.`,true); $('#dValor').value=''; }
+  try{ await store.add('dividendos',{ticker:t,tipo:$('#dTipo').value,data:$('#dData').value||today(),valor:v}); const q=isCot(clsOf(S,t))?qtdPag(S,t,$('#dData').value||today())[0]:0; flash(m,`${R(v)} de ${exist&&exist.nome||t} lançado.`+(q?` Deu ${R4(v/q)} por ação/cota.`:''),true); $('#dValor').value=''; divHint(); }
   catch(err){flash(m,errTxt(err));}
 });
 function syncIndForm(){showOnly($('#fInd'),$('#iCls').value||inferCls(up($('#iTk').value)));}
