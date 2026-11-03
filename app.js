@@ -626,7 +626,7 @@ function renderOv(patrimonio){
     k('contas','Receitas do mês',rt?R(rt):'—',rt?'sobra '+R(rt-tot):'lance em Contas',rt?cls(rt-tot):'')+
     k('cartoes','Fatura do cartão',R(ft),ft?(fatPaga?'paga':nCart+' cartã'+(nCart===1?'o':'os')+' · em aberto'):'nada neste mês')+
     k('carteira','Investimentos',R(patrimonio),'patrimônio hoje','gold')+
-    k('chacara','Chácara no mês',R(lucro),'lucro líquido',cls(lucro))+
+    (()=>{const VD=chVendido(ym), u=VD.n?null:chUltMes(ym); return k('chacara','Chácara no mês',R(VD.tot),VD.tot?'vendido · lucro '+R(lucro):(u?'nada ainda · '+MESES_L[+u.slice(5)-1].toLowerCase()+' '+R(chVendido(u).tot):'nada vendido'),VD.tot?'up':'');})()+
     k('luzagua','Luz e água',uaPg+' de '+uas.length,'pagas neste mês');
   const meses=[-4,-3,-2,-1,0,1].map(d=>ymAdd(ym,d));
   $('#ovChart').innerHTML=ovBars(meses,[meses.map(m=>soma(S.receitas.filter(r=>r.mes===m))),meses.map(m=>soma(contasDoMes(m,P)))],['rc','dc'])
@@ -846,6 +846,15 @@ new MutationObserver(()=>{clearTimeout(stackTables.t);stackTables.t=setTimeout(s
 let vdYM=today().slice(0,7);
 const vTot=v=>Math.round((v.valor!=null?+v.valor||0:(+v.qtd||0)*(+v.preco||0))*100)/100;
 const UN={kg:'kg',L:'L',un:'un'};
+const prodNome=p=>{p=(p||'Outro').trim()||'Outro'; return p.charAt(0).toUpperCase()+p.slice(1).toLowerCase();};
+/* Tudo o que foi vendido no mês (pago ou fiado) + o leite recebido do laticínio */
+function chVendido(ym){
+  const L=(S.vendas||[]).filter(v=>(v.data||'').slice(0,7)===ym);
+  const lt=L.filter(v=>/leite/i.test(v.produto||'')).reduce((t,v)=>t+vTot(v),0), out=L.reduce((t,v)=>t+vTot(v),0)-lt;
+  const recL=+(((S.leitemes||[]).find(x=>x.id==='lm-'+ym)||{}).recebido)||0;
+  return {tot:Math.round((out+lt+recL)*100)/100, leite:Math.round((lt+recL)*100)/100, queijo:Math.round(out*100)/100, n:L.length};
+}
+function chUltMes(ym){ const ms=(S.vendas||[]).map(v=>(v.data||'').slice(0,7)).filter(m=>m&&m<ym).sort(); return ms.length?ms[ms.length-1]:null; }
 function renderVendas(){
   const V=S.vendas||[]; const L=V.filter(v=>(v.data||'').slice(0,7)===vdYM).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
   $('#vdMes').textContent=ymNome(vdYM);
@@ -857,16 +866,17 @@ function renderVendas(){
   const lucro=recL+rec-desp;
   $('#vdKpis').innerHTML=`
     <div class="ckpi"><div class="l">Leite em ${MESES_L[+ym.slice(5)-1]}</div><div class="v">${NQ.format(lit)} L</div><div class="s">${diasL?diasL+' dias · média '+NQ.format(Math.round(lit/diasL*10)/10)+' L':'nenhum dia lançado'}</div></div>
-    <div class="ckpi"><div class="l">Recebido</div><div class="v up">${R(recL+rec)}</div><div class="s">${recL&&lit?'leite a '+R(recL/lit)+'/L':'leite '+R(recL)}${rec?' · vendas '+R(rec):''}</div></div>
+    ${(()=>{const VD=chVendido(ym); return `<div class="ckpi"><div class="l">Vendido no mês</div><div class="v up">${R(VD.tot)}</div><div class="s">${VD.tot?'queijo '+R(VD.queijo)+' · leite '+R(VD.leite)+(Math.abs(VD.tot-(recL+rec))>0.004?' · recebido '+R(recL+rec):''):'nenhuma venda lançada'}</div></div>`;})()}
     <div class="ckpi"><div class="l">Despesas</div><div class="v ${desp?'down':''}">${R(desp)}</div><div class="s">${G.length} lançamento${G.length===1?'':'s'}</div></div>
     <div class="ckpi"><div class="l">Lucro líquido</div><div class="v ${cls(lucro)}">${R(lucro)}</div><div class="s">${tot-rec>0.004?'a receber '+R(tot-rec):(+LM.faltou?'faltou receber '+R(+LM.faltou):'recebido − despesas')}</div></div>
     ${(()=>{// fiado não pago continua aparecendo nos meses seguintes até ser pago
       const F=V.filter(v=>!v.pago&&(v.data||'').slice(0,7)<=ym), ft=F.reduce((s,v)=>s+vTot(v),0), ant=F.filter(v=>(v.data||'').slice(0,7)<ym).reduce((s,v)=>s+vTot(v),0), nc=new Set(F.map(v=>((v.cliente||'').trim()||'Sem nome').toLowerCase())).size;
       return `<div class="ckpi" data-chseg="fiado" role="button" tabindex="0" style="cursor:pointer"><div class="l">Fiado em aberto</div><div class="v ${ft>0.004?'gold':''}">${R(ft)}</div><div class="s">${F.length?nc+' cliente'+(nc===1?'':'s')+(ant>0.004?' · '+R(ant)+' de meses anteriores':' · deste mês'):'ninguém devendo'}</div></div>`;})()}`;
   renderLeite(PR,LM); renderChG(G);
-  const porP={}; L.forEach(v=>{const k=(v.produto||'Outro')+'|'+(v.un||'un'); const o=porP[k]||(porP[k]={p:v.produto||'Outro',un:v.un||'un',q:0,v:0}); o.q+=+v.qtd||0; o.v+=vTot(v);});
+  const porP={}; L.forEach(v=>{const p=prodNome(v.produto); const o=porP[p]||(porP[p]={p,qs:{},v:0,vq:0,fi:0}); if(v.valor!=null) o.fi+=vTot(v); else {const un=v.un||'un'; o.qs[un]=(o.qs[un]||0)+(+v.qtd||0); o.vq+=vTot(v);} o.v+=vTot(v);});
   const ps=Object.values(porP).sort((a,b)=>b.v-a.v);
-  $('#vdProd').innerHTML=ps.map((o,i)=>`<div class="bar" style="grid-template-columns:minmax(0,150px) minmax(0,1fr) auto"><span>${esc(o.p)} <span class="sub2">${NQ.format(Math.round(o.q*1000)/1000)} ${esc(UN[o.un]||o.un)}</span></span><div class="track"><div class="fill" style="background:${PAL[i%PAL.length]};width:${(tot?o.v/tot*100:0).toFixed(1)}%"></div></div><span class="num" style="text-align:right;white-space:nowrap">${R(o.v)} <span class="sub2">média ${R(o.q?o.v/o.q:0)}/${esc(UN[o.un]||o.un)}</span></span></div>`).join('');
+  $('#vdProd').innerHTML=ps.map((o,i)=>`<div class="bar" style="grid-template-columns:minmax(0,150px) minmax(0,1fr) auto"><span>${esc(o.p)} <span class="sub2">${[...Object.entries(o.qs).map(([u,q])=>NQ.format(Math.round(q*1000)/1000)+' '+esc(UN[u]||u)),o.fi?'fiado '+R(o.fi):''].filter(Boolean).join(' + ')}</span></span><div class="track"><div class="fill" style="background:${PAL[i%PAL.length]};width:${(tot?o.v/tot*100:0).toFixed(1)}%"></div></div><span class="num" style="text-align:right;white-space:nowrap">${R(o.v)} ${(()=>{const e=Object.entries(o.qs); return e.length===1&&e[0][1]?`<span class="sub2">média ${R(o.vq/e[0][1])}/${esc(UN[e[0][0]]||e[0][0])}</span>`:'';})()}</span></div>`).join('')
+    ||(()=>{const u=chUltMes(vdYM); return `<p class="empty">Nenhuma venda em ${ymNome(vdYM)}.${u?` <button class="linkbtn" data-vdym="${u}">Ver ${ymNome(u)}: ${R(chVendido(u).tot)} vendidos</button>`:''}</p>`;})();
   $('#tblVendas').innerHTML=`<thead><tr><th>Recebido</th><th>Data</th><th>Cliente</th><th>Produto</th><th class="n">Quantidade</th><th class="n">Total</th><th></th></tr></thead><tbody>${L.length?L.map(v=>`<tr class="${v.pago?'pago':''}">
     <td><input type="checkbox" class="ckpago" data-vpago="${esc(v.id)}" ${v.pago?'checked':''} aria-label="Marcar venda como recebida"></td>
     <td class="num">${fmtD(v.data)}</td><td>${esc(v.cliente||'—')}</td><td>${esc(v.produto||'')}</td>
