@@ -633,6 +633,7 @@ html,body{margin:0;background:var(--bg)}
     <div class="card">
       <div class="headrow">
         <div><h2>Fatura</h2><p class="sub">Gastos que caem na fatura do mês escolhido, já com as parcelas distribuídas</p></div>
+        <button class="btn small" type="button" data-novocartao>+ Novo cartão</button>
         <div class="fatnav"><button class="btn ghost small" id="fatPrev" aria-label="Mês anterior">‹</button><span class="mes" id="fatMes"></span><button class="btn ghost small" id="fatNext" aria-label="Próximo mês">›</button></div>
       </div>
       <div class="ckpis" id="cKpis"></div>
@@ -672,7 +673,9 @@ html,body{margin:0;background:var(--bg)}
         <h2>Meus cartões</h2>
         <p class="sub">O dia de fechamento define em qual fatura cada compra cai</p>
         <div class="cardchips" id="cardList"></div>
-        <form class="f" id="fCartao" style="margin-top:14px">
+        <div id="cardSug"></div>
+        <h3 id="novoCartaoTit" style="margin:16px 0 0;font-size:15px">Cadastrar novo cartão</h3>
+        <form class="f" id="fCartao" style="margin-top:8px">
           <label class="fld wide">Nome do cartão<input id="cNome" required placeholder="Nubank Roxinho" autocomplete="off"></label>
           <label class="fld">Dia do fechamento<input id="cFech" type="number" min="1" max="31" required inputmode="numeric" placeholder="3"></label>
           <label class="fld">Dia do vencimento<input id="cVenc" type="number" min="1" max="31" required inputmode="numeric" placeholder="10"></label>
@@ -739,6 +742,7 @@ html,body{margin:0;background:var(--bg)}
       <p class="sub">Para conta fixa ou parcelada, use "repetir por" e ela é criada em cada mês</p>
       <form class="f" id="fConta">
         <label class="fld">Mês<input id="ctM" type="month" required></label>
+        <label class="fld">Fatura de cartão?<select id="ctCartao"></select></label>
         <label class="fld wide">Descrição<input id="ctDesc" required placeholder="Energia" autocomplete="off"></label>
         <label class="fld">Categoria<select id="ctCat"></select></label>
         <label class="fld">Valor (R$)<input id="ctValor" type="number" min="0" step="0.01" required inputmode="decimal"></label>

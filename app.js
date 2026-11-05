@@ -579,6 +579,29 @@ function renderCartoes(){
   if(S.cartoes.some(c=>c.id===cur)) gc.value=cur;
   $('#cardList').innerHTML=S.cartoes.length?S.cartoes.map(c=>{const u=P.filter(x=>x.c.id===c.id&&x.ym>=today().slice(0,7)).reduce((s,x)=>s+x.v,0); const pc=c.limite?u/c.limite:0;
     return `<div class="cchip"><div><b>${esc(c.nome)}</b><div class="sub2">fecha dia ${esc(c.fech)} · vence dia ${esc(c.venc)}${c.limite?' · limite '+R(+c.limite):''}</div>${c.limite?`<div class="limbar" title="${PCT(pc)} do limite"><i class="${pc>0.8?'hi':''}" style="width:${Math.min(100,pc*100).toFixed(0)}%"></i></div>`:''}</div><button class="btn ghost small" data-ed="cartoes" data-id="${esc(c.id)}">Editar</button><button class="btn danger small" data-del="cartoes" data-id="${esc(c.id)}" ${S.gastos.some(g=>g.cartao===c.id)?'disabled title="Exclua os gastos deste cartão antes"':''}>Excluir</button></div>`;}).join(''):'<p class="empty">Nenhum cartão cadastrado.</p>';
+  const soltos=cartoesSoltos();
+  $('#cardSug').innerHTML=soltos.length?`<p class="sub" style="margin-top:14px">Cartões que aparecem em Contas a pagar mas ainda não estão cadastrados aqui:</p><div class="seg" style="flex-wrap:wrap">${soltos.map(s=>`<button type="button" data-novocartao="${esc(s.id)}" title="Cadastrar ${esc(s.nome)}">+ ${esc(s.nome)}</button>`).join('')}</div>`:'';
+  fillCtCartao();
+}
+/* Cartões citados nas contas (campo cartao) que ainda não têm cadastro em "Meus cartões". */
+function cartoesSoltos(){
+  const ids=new Set(S.cartoes.map(c=>c.id)); const m={};
+  S.contas.forEach(c=>{ if(!c.cartao||ids.has(c.cartao)) return; const x=m[c.cartao]||(m[c.cartao]={id:c.cartao,nome:'',dia:null,mes:''});
+    if((c.mes||'')>=x.mes){ x.mes=c.mes||''; const d=String(c.descricao||'').match(/^fatura\s+(?:do\s+|de\s+)?(.+)$/i); if(d) x.nome=d[1].trim(); if(+c.dia) x.dia=+c.dia; } });
+  return Object.values(m).map(x=>({...x,nome:x.nome||x.id.split('-').map(w=>w.length<=2?w:w[0]+w.slice(1).toLowerCase()).join(' ')})).sort((a,b)=>a.nome.localeCompare(b.nome,'pt'));
+}
+let cNovoId=null;
+function novoCartao(id){
+  go('cartoes'); cNovoId=null; ['cNome','cFech','cVenc','cLim'].forEach(i=>$('#'+i).value=''); $('#mCartao').textContent='';
+  const s=id&&cartoesSoltos().find(x=>x.id===id);
+  if(s){ cNovoId=s.id; $('#cNome').value=s.nome; if(s.dia) $('#cVenc').value=s.dia; }
+  setTimeout(()=>{ $('#novoCartaoTit').scrollIntoView({behavior:'smooth',block:'center'}); (s?(s.dia?$('#cFech'):$('#cVenc')):$('#cNome')).focus({preventScroll:true}); },60);
+}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-novocartao]'); if(b){e.preventDefault(); novoCartao(b.dataset.novocartao||null);}});
+function fillCtCartao(){
+  const el=$('#ctCartao'); if(!el) return; const cur=el.value;
+  el.innerHTML='<option value="">Não</option>'+S.cartoes.map(c=>`<option value="${esc(c.id)}">${esc(c.nome)}</option>`).join('')+'<option value="__novo">+ Cadastrar novo cartão…</option>';
+  if(S.cartoes.some(c=>c.id===cur)) el.value=cur;
 }
 $('#fatPrev').addEventListener('click',()=>{fatYM=ymAdd(fatYM,-1);fatAll=false;renderCartoes();});
 document.addEventListener('click',e=>{if(e.target.closest('#fatMore')){fatAll=true;renderCartoes();}});
@@ -588,9 +611,9 @@ $('#fCartao').addEventListener('submit',async e=>{
   e.preventDefault(); const m=$('#mCartao'); const nome=$('#cNome').value.trim(), fech=+$('#cFech').value, venc=+$('#cVenc').value;
   if(!nome){flash(m,'Dê um nome ao cartão.');return;}
   if(!(fech>=1&&fech<=31)||!(venc>=1&&venc<=31)){flash(m,'Os dias de fechamento e vencimento vão de 1 a 31.');return;}
-  const id=slug(nome)||('C'+Date.now().toString(36));
+  const id=cNovoId||slug(nome)||('C'+Date.now().toString(36));
   if(S.cartoes.some(c=>c.id===id)){flash(m,'Já existe um cartão com esse nome.');return;}
-  try{await store.put('cartoes',id,{nome,fech,venc,limite:numOrNull($('#cLim').value)}); flash(m,`${nome} adicionado.`,true); ['cNome','cFech','cVenc','cLim'].forEach(i=>$('#'+i).value=''); $('#gCartao').value=id;}
+  try{await store.put('cartoes',id,{nome,fech,venc,limite:numOrNull($('#cLim').value)}); cNovoId=null; flash(m,`${nome} cadastrado. Já aparece em Novo gasto e em Contas a pagar.`,true); ['cNome','cFech','cVenc','cLim'].forEach(i=>$('#'+i).value=''); $('#gCartao').value=id;}
   catch(err){flash(m,errTxt(err));}
 });
 $('#fGasto').addEventListener('submit',async e=>{
@@ -706,7 +729,7 @@ function contasDoMes(ym,P){
   return L.sort((a,b)=>(a.pago===b.pago?0:a.pago?1:-1)||ord(a)-ord(b)||(b.valor||0)-(a.valor||0));
 }
 function renderContas(){
-  renderAv();
+  renderAv(); fillCtCartao();
   const P=parcelas(); const L=contasDoMes(ctYM,P);
   $('#ctMes').textContent=ymNome(ctYM);
   const tot=L.reduce((s,c)=>s+(+c.valor||0),0), pago=L.filter(c=>c.pago).reduce((s,c)=>s+(+c.valor||0),0);
@@ -741,6 +764,11 @@ document.addEventListener('change',async e=>{const k=e.target.closest('[data-pag
   const c=S.contas.find(x=>x.id===k.dataset.pago); if(!c) return; const {id,...d}=c;
   try{await store.put('contas',id,{...d,pago:k.checked});}catch(err){k.checked=!k.checked; alert(errTxt(err));}
 });
+$('#ctCartao').addEventListener('change',e=>{
+  const v=e.target.value; if(v==='__novo'){ e.target.value=''; novoCartao(null); return; }
+  const c=S.cartoes.find(x=>x.id===v); if(!c) return;
+  $('#ctDesc').value='Fatura '+c.nome; $('#ctCat').value='Cartão'; if(+c.venc) $('#ctDia').value=+c.venc; $('#ctValor').focus();
+});
 $('#fConta').addEventListener('submit',async e=>{
   e.preventDefault(); const m=$('#mConta'); const ym=$('#ctM').value, desc=$('#ctDesc').value.trim(), v=+$('#ctValor').value, n=Math.round(+$('#ctRep').value||1), num=$('#ctParc').value==='1';
   if(!/^\d{4}-\d{2}$/.test(ym)){flash(m,'Escolha o mês.');return;}
@@ -749,9 +777,10 @@ $('#fConta').addEventListener('submit',async e=>{
   if(!(n>=1&&n<=60)){flash(m,'Repetir de 1 a 60 meses.');return;}
   const dia=$('#ctDia').value===''?null:Math.round(+$('#ctDia').value); if(dia!=null&&!(dia>=1&&dia<=31)){flash(m,'Dia do vencimento de 1 a 31.');return;}
   try{
-    for(let i=0;i<n;i++){const d={mes:ymAdd(ym,i),descricao:desc,categoria:$('#ctCat').value,valor:v,pago:false}; if(dia) d.dia=dia; if(num&&n>1) d.parcela=(i+1)+'/'+n; await store.add('contas',d);}
+    const cartao=$('#ctCartao').value&&$('#ctCartao').value!=='__novo'?$('#ctCartao').value:null;
+    for(let i=0;i<n;i++){const d={mes:ymAdd(ym,i),descricao:desc,categoria:$('#ctCat').value,valor:v,pago:false}; if(dia) d.dia=dia; if(cartao) d.cartao=cartao; if(num&&n>1) d.parcela=(i+1)+'/'+n; await store.add('contas',d);}
     flash(m,`${desc} adicionada${n>1?' em '+n+' meses, de '+ymNome(ym)+' a '+ymNome(ymAdd(ym,n-1)):' em '+ymNome(ym)}.`,true);
-    $('#ctDesc').value='';$('#ctValor').value='';$('#ctRep').value='1'; ctYM=ym; renderContas();
+    $('#ctDesc').value='';$('#ctValor').value='';$('#ctRep').value='1'; $('#ctCartao').value=''; ctYM=ym; renderContas();
   }catch(err){flash(m,errTxt(err));}
 });
 /* ---------- Gastos à vista: itens dentro da conta av-YYYY-MM ---------- */
@@ -818,6 +847,7 @@ function edSchema(col,d){
       num('valor','Valor total (R$)',{step:'0.01'}),num('parcelas','Parcelas',{step:'1',min:1,max:48})]};
     case 'contas': return {tit:'Editar conta',f:[{k:'mes',l:'Mês',t:'month'},{k:'descricao',l:'Descrição',t:'text',wide:1},
       {k:'categoria',l:'Categoria',t:'select',opts:CCATS.map(c=>[c,c])},num('valor','Valor (R$)',{step:'0.01'}),num('dia','Dia do vencimento',{step:'1',min:1,max:31,opt:1}),{k:'parcela',l:'Parcela (ex.: 3/12)',t:'text',opt:1},
+      {k:'cartao',l:'Fatura de cartão?',t:'select',opt:1,opts:[['','Não'],...S.cartoes.map(c=>[c.id,c.nome]),...(d.cartao&&!S.cartoes.some(c=>c.id===d.cartao)?[[d.cartao,d.cartao]]:[])]},
       {k:'pago',l:'Situação',t:'select',opts:[['0','A pagar'],['1','Paga']]}]};
     case 'vendas': if(d.valor!=null) return {tit:'Editar fiado',f:[{k:'cliente',l:'Cliente',t:'text',list:'cliList',wide:1},{k:'data',l:'Dia',t:'date'},
       {k:'produto',l:'Mercadoria',t:'select',opts:[['Leite','Leite'],['Queijo','Queijo']]},num('valor','Valor (R$)',{step:'0.01'}),{k:'pago',l:'Pagamento',t:'select',opts:[['0','Ainda não pagou'],['1','Pagou']]}]};
@@ -875,6 +905,7 @@ $('#edForm').addEventListener('submit',async e=>{
   if(col==='gastos'){ data.parcelas=Math.round(data.parcelas); if(!(data.parcelas>=1&&data.parcelas<=48)){flash(m,'Parcelas de 1 a 48.');return;} if(!data.valor){flash(m,'Informe o valor.');return;} if(data.data!==d.data||data.cartao!==d.cartao) delete data.fatura; }
   if(col==='cartoes'&&(!(data.fech>=1&&data.fech<=31)||!(data.venc>=1&&data.venc<=31))){flash(m,'Os dias vão de 1 a 31.');return;}
   if(col==='contas'&&!data.parcela) delete data.parcela;
+  if(col==='contas'&&!data.cartao) delete data.cartao;
   if(col==='ucs'&&data.dia!=null){ data.dia=Math.round(data.dia); if(!(data.dia>=1&&data.dia<=31)){flash(m,'O dia vai de 1 a 31.');return;} }
   if(col==='licenc'){ if(!data.venc) data.venc=null; data.pagoEm=data.pago?(d.pagoEm||today()):null; }
   if(col==='compras'&&!(data.qtd>0)){flash(m,'Informe a quantidade.');return;}
