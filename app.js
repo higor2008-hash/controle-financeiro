@@ -688,6 +688,13 @@ function ovBars(meses,series,cls,fmtTop){
     g+=`<text x="${L+i*bw+bw/2}" y="${H-8}" text-anchor="middle" class="lbl">${MESES[+m.slice(5)-1]}</text>`;});
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Gráfico por mês">${g}</svg>`;
 }
+/* Chácara no financeiro total: o que entrou (vendas pagas + leite recebido) e as despesas do mês */
+function chRec(ym){
+  const rec=(S.vendas||[]).filter(v=>v.pago&&(v.data||'').slice(0,7)===ym).reduce((s,v)=>s+vTot(v),0);
+  const recL=+(((S.leitemes||[]).find(x=>x.id==='lm-'+ym)||{}).recebido)||0;
+  return Math.round((rec+recL)*100)/100;
+}
+function chDesp(ym){ return Math.round((S.chgastos||[]).filter(x=>x.mes===ym).reduce((t,x)=>t+(+x.valor||0),0)*100)/100; }
 function chLucro(ym){
   const rec=(S.vendas||[]).filter(v=>v.pago&&(v.data||'').slice(0,7)===ym).reduce((s,v)=>s+vTot(v),0);
   const recL=+(((S.leitemes||[]).find(x=>x.id==='lm-'+ym)||{}).recebido)||0;
@@ -697,7 +704,8 @@ function chLucro(ym){
 function renderOv(patrimonio){
   const ym=today().slice(0,7), P=parcelas(), soma=a=>a.reduce((s,x)=>s+(+x.valor||0),0);
   $('#ovMes').textContent=MESES_L[+ym.slice(5)-1].toLowerCase();
-  const L=contasDoMes(ym,P), tot=soma(L), pago=soma(L.filter(c=>c.pago)), rt=soma(S.receitas.filter(r=>r.mes===ym));
+  const cR=chRec(ym), cD=chDesp(ym);
+  const L=contasDoMes(ym,P), tot=soma(L)+cD, pago=soma(L.filter(c=>c.pago))+cD, rt=soma(S.receitas.filter(r=>r.mes===ym))+cR;
   const fat=P.filter(x=>x.ym===ym), ft=fat.reduce((s,x)=>s+x.v,0), nCart=new Set(fat.map(x=>x.c.id)).size;
   const fatPaga=[...new Set(fat.map(x=>x.c.id))].every(id=>((S.faturas||[]).find(f=>f.id==='fp-'+id+'-'+ym)||{}).pago);
   const lucro=chLucro(ym);
@@ -705,16 +713,16 @@ function renderOv(patrimonio){
   const late=vencendo(P).filter(x=>x.c.tab!=='veiculos'&&x.st==='late').length;
   const k=(tab,l,v,s,c='')=>`<div class="ckpi" data-goto="${tab}" role="button" tabindex="0"><div class="l">${l}</div><div class="v ${c}">${v}</div><div class="s">${s}</div></div>`;
   $('#ovKpis').innerHTML=
-    k('contas','Contas do mês',R(tot),tot-pago>0.004?'faltam '+R(tot-pago)+(late?' · '+late+' vencida'+(late===1?'':'s'):''):'tudo pago',late?'down':'')+
-    k('contas','Receitas do mês',rt?R(rt):'—',rt?'sobra '+R(rt-tot):'lance em Contas',rt?cls(rt-tot):'')+
+    k('contas','Contas do mês',R(tot),(tot-pago>0.004?'faltam '+R(tot-pago)+(late?' · '+late+' vencida'+(late===1?'':'s'):''):'tudo pago')+(cD?' · chácara '+R(cD):''),late?'down':'')+
+    k('contas','Receitas do mês',rt?R(rt):'—',rt?'sobra '+R(rt-tot)+(cR?' · chácara '+R(cR):''):'lance em Contas',rt?cls(rt-tot):'')+
     k('cartoes','Fatura do cartão',R(ft),ft?(fatPaga?'paga':nCart+' cartã'+(nCart===1?'o':'os')+' · em aberto'):'nada neste mês')+
     k('carteira','Investimentos',R(patrimonio),'patrimônio hoje','gold')+
     (()=>{const VD=chVendido(ym), u=VD.n?null:chUltMes(ym); return k('chacara','Chácara no mês',R(VD.tot),VD.tot?'vendido · lucro '+R(lucro):(u?'nada ainda · '+MESES_L[+u.slice(5)-1].toLowerCase()+' '+R(chVendido(u).tot):'nada vendido'),VD.tot?'up':'');})()+
     k('luzagua','Luz e água',uaPg+' de '+uas.length,'pagas neste mês');
   const meses=[-4,-3,-2,-1,0,1].map(d=>ymAdd(ym,d));
-  $('#ovChart').innerHTML=ovBars(meses,[meses.map(m=>soma(S.receitas.filter(r=>r.mes===m))),meses.map(m=>soma(contasDoMes(m,P)))],['rc','dc'])
+  $('#ovChart').innerHTML=ovBars(meses,[meses.map(m=>soma(S.receitas.filter(r=>r.mes===m))+chRec(m)),meses.map(m=>soma(contasDoMes(m,P))+chDesp(m))],['rc','dc'])
     +'<div class="ovleg"><span><i style="background:#4fd08a"></i>Receitas</span><span><i style="background:#ff5c74"></i>Contas</span></div>';
-  const porCat={}; L.forEach(c=>{const k=c.categoria||'Outros'; porCat[k]=(porCat[k]||0)+(+c.valor||0);});
+  const porCat={}; L.forEach(c=>{const k=c.categoria||'Outros'; porCat[k]=(porCat[k]||0)+(+c.valor||0);}); if(cD) porCat['Chácara']=(porCat['Chácara']||0)+cD;
   const cats=Object.entries(porCat).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]);
   $('#ovCat').innerHTML=cats.length?donut(cats.map(([l,v])=>({l,v})),kfmtOv(tot),'no mês'):'<p class="empty">Nenhuma conta neste mês.</p>';
   const porG={}; fat.forEach(x=>{const k=x.g.categoria||'Outros'; porG[k]=(porG[k]||0)+x.v;});
@@ -741,11 +749,12 @@ function renderContas(){
   $('#ctMes').textContent=ymNome(ctYM);
   const tot=L.reduce((s,c)=>s+(+c.valor||0),0), pago=L.filter(c=>c.pago).reduce((s,c)=>s+(+c.valor||0),0);
   const rec=S.receitas.filter(r=>r.mes===ctYM).sort((a,b)=>(b.valor||0)-(a.valor||0)); const rt=rec.reduce((s,r)=>s+(+r.valor||0),0);
-  const saldo=rt-tot;
+  const cR=chRec(ctYM), cD=chDesp(ctYM), temRec=rec.length||cR>0;
+  const saldo=rt+cR-tot-cD;
   $('#ctKpis').innerHTML=`
     <div class="ckpi"><div class="l">A pagar em ${MESES_L[+ctYM.slice(5)-1]}</div><div class="v">${R(tot)}</div><div class="s">${L.length} conta${L.length===1?'':'s'} · ${tot-pago>0.004?'faltam '+R(tot-pago):'tudo pago'}</div></div>
-    <div class="ckpi"><div class="l">Receitas do mês</div><div class="v">${R(rt)}</div><div class="s">${rec.length?rec.length+' entrada'+(rec.length===1?'':'s'):'Lance suas receitas abaixo'}</div></div>
-    <div class="ckpi"><div class="l">Sobra do mês</div><div class="v ${rec.length?cls(saldo):''}">${rec.length?R(saldo):'—'}</div><div class="s">${rec.length?(saldo>=0?'receitas menos contas':'as contas passam das receitas'):'precisa das receitas do mês'}</div></div>`;
+    <div class="ckpi"><div class="l">Receitas do mês</div><div class="v">${R(rt+cR)}</div><div class="s">${rec.length?rec.length+' entrada'+(rec.length===1?'':'s'):(cR?'':'Lance suas receitas abaixo')}${cR?(rec.length?' · ':'')+'chácara '+R(cR):''}</div></div>
+    <div class="ckpi"><div class="l">Sobra do mês</div><div class="v ${temRec?cls(saldo):''}">${temRec?R(saldo):'—'}</div><div class="s">${temRec?(saldo>=0?'receitas menos contas':'as contas passam das receitas')+(cR||cD?' · com chácara ('+R(cR-cD)+')':''):'precisa das receitas do mês'}</div></div>`;
   const itens=c=>c.itens&&c.itens.length?`<details class="itens"><summary>${c.itens.length} ite${c.itens.length===1?'m':'ns'}</summary><ul>${c.itens.map(i=>`<li><span>${esc(i.d)}</span><span class="num">${R(i.v)}</span></li>`).join('')}</ul></details>`:'';
   $('#tblContas').innerHTML=`<thead><tr><th>Pago</th><th>Conta</th><th>Situação</th><th class="n">Valor</th><th></th></tr></thead><tbody>${L.length?L.map(c=>`<tr class="${c.pago?'pago':''}">
     <td>${c.auto?`<input type="checkbox" class="ckpago" data-fpago="${esc(c.cartao)}|${esc(c.mes)}" ${c.pago?'checked':''} aria-label="Marcar ${esc(c.descricao)} como paga" title="Fatura vem da aba Cartões">`:`<input type="checkbox" class="ckpago" data-pago="${esc(c.id)}" ${c.pago?'checked':''} aria-label="Marcar ${esc(c.descricao)} como paga">`}</td>
