@@ -633,7 +633,7 @@ html,body{margin:0;background:var(--bg)}
     <div class="card">
       <div class="headrow">
         <div><h2>Fatura</h2><p class="sub">Gastos que caem na fatura do mês escolhido, já com as parcelas distribuídas</p></div>
-        <button class="btn small" type="button" data-novocartao>+ Novo cartão</button>
+        <span class="acts"><button class="btn small" type="button" data-novogasto>+ Novo gasto</button><button class="btn ghost small" type="button" data-novocartao>+ Novo cartão</button></span>
         <div class="fatnav"><button class="btn ghost small" id="fatPrev" aria-label="Mês anterior">‹</button><span class="mes" id="fatMes"></span><button class="btn ghost small" id="fatNext" aria-label="Próximo mês">›</button></div>
       </div>
       <div class="ckpis" id="cKpis"></div>
@@ -656,7 +656,7 @@ html,body{margin:0;background:var(--bg)}
     </div>
     <div class="grid2">
       <div class="card">
-        <h2>Novo gasto</h2>
+        <h2 id="novoGastoTit">Novo gasto</h2>
         <p class="sub">Para compra parcelada, informe o valor total e o número de parcelas</p>
         <form class="f" id="fGasto">
           <label class="fld">Cartão<select id="gCartao" required></select></label>

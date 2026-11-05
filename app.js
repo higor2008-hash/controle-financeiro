@@ -578,7 +578,7 @@ function renderCartoes(){
   gc.innerHTML=S.cartoes.length?S.cartoes.map(c=>`<option value="${esc(c.id)}">${esc(c.nome)}</option>`).join(''):'<option value="">Cadastre um cartão primeiro</option>';
   if(S.cartoes.some(c=>c.id===cur)) gc.value=cur;
   $('#cardList').innerHTML=S.cartoes.length?S.cartoes.map(c=>{const u=P.filter(x=>x.c.id===c.id&&x.ym>=today().slice(0,7)).reduce((s,x)=>s+x.v,0); const pc=c.limite?u/c.limite:0;
-    return `<div class="cchip"><div><b>${esc(c.nome)}</b><div class="sub2">fecha dia ${esc(c.fech)} · vence dia ${esc(c.venc)}${c.limite?' · limite '+R(+c.limite):''}</div>${c.limite?`<div class="limbar" title="${PCT(pc)} do limite"><i class="${pc>0.8?'hi':''}" style="width:${Math.min(100,pc*100).toFixed(0)}%"></i></div>`:''}</div><button class="btn ghost small" data-ed="cartoes" data-id="${esc(c.id)}">Editar</button><button class="btn danger small" data-del="cartoes" data-id="${esc(c.id)}" ${S.gastos.some(g=>g.cartao===c.id)?'disabled title="Exclua os gastos deste cartão antes"':''}>Excluir</button></div>`;}).join(''):'<p class="empty">Nenhum cartão cadastrado.</p>';
+    return `<div class="cchip"><div><b>${esc(c.nome)}</b><div class="sub2">fecha dia ${esc(c.fech)} · vence dia ${esc(c.venc)}${c.limite?' · limite '+R(+c.limite):''}</div>${c.limite?`<div class="limbar" title="${PCT(pc)} do limite"><i class="${pc>0.8?'hi':''}" style="width:${Math.min(100,pc*100).toFixed(0)}%"></i></div>`:''}</div><button class="btn small" type="button" data-novogasto="${esc(c.id)}">+ Gasto</button><button class="btn ghost small" data-ed="cartoes" data-id="${esc(c.id)}">Editar</button><button class="btn danger small" data-del="cartoes" data-id="${esc(c.id)}" ${S.gastos.some(g=>g.cartao===c.id)?'disabled title="Exclua os gastos deste cartão antes"':''}>Excluir</button></div>`;}).join(''):'<p class="empty">Nenhum cartão cadastrado.</p>';
   const soltos=cartoesSoltos();
   $('#cardSug').innerHTML=soltos.length?`<p class="sub" style="margin-top:14px">Cartões que aparecem em Contas a pagar mas ainda não estão cadastrados aqui:</p><div class="seg" style="flex-wrap:wrap">${soltos.map(s=>`<button type="button" data-novocartao="${esc(s.id)}" title="Cadastrar ${esc(s.nome)}">+ ${esc(s.nome)}</button>`).join('')}</div>`:'';
   fillCtCartao();
@@ -590,6 +590,13 @@ function cartoesSoltos(){
     if((c.mes||'')>=x.mes){ x.mes=c.mes||''; const d=String(c.descricao||'').match(/^fatura\s+(?:do\s+|de\s+)?(.+)$/i); if(d) x.nome=d[1].trim(); if(+c.dia) x.dia=+c.dia; } });
   return Object.values(m).map(x=>({...x,nome:x.nome||x.id.split('-').map(w=>w.length<=2?w:w[0]+w.slice(1).toLowerCase()).join(' ')})).sort((a,b)=>a.nome.localeCompare(b.nome,'pt'));
 }
+function novoGasto(id){
+  go('cartoes'); if(!S.cartoes.length){ novoCartao(null); return; }
+  const cid=id||(cartSel!=='todos'?cartSel:''); if(cid&&S.cartoes.some(c=>c.id===cid)) $('#gCartao').value=cid;
+  if(!$('#gData').value) $('#gData').value=today(); $('#mGasto').textContent='';
+  setTimeout(()=>{ $('#novoGastoTit').scrollIntoView({behavior:'smooth',block:'start'}); $('#gDesc').focus({preventScroll:true}); },60);
+}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-novogasto]'); if(b){e.preventDefault(); novoGasto(b.dataset.novogasto||null);}});
 let cNovoId=null;
 function novoCartao(id){
   go('cartoes'); cNovoId=null; ['cNome','cFech','cVenc','cLim'].forEach(i=>$('#'+i).value=''); $('#mCartao').textContent='';
