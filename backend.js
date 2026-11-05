@@ -288,7 +288,9 @@
     window.claude = { use: async nome => nome === "db" ? dbUso : nome === "user" ? user : nome === "downloads" ? downloads : null };
     scr.hidden = true; document.body.classList.remove("locked");
     tempoReal();
-    const s = document.createElement("script"); s.src = "app.js?v=" + (cfg.versao || "1"); document.body.appendChild(s);
+    const s = document.createElement("script"); s.src = "app.js?v=" + (cfg.versao || "1");
+    s.onload = () => { const e = document.createElement("script"); e.src = "energia.js?v=" + (cfg.versao || "1"); document.body.appendChild(e); };
+    document.body.appendChild(s);
     if (dono) painelAcessos(); else avisoConvidado(convidado, nivelGlic, session.user.email);
     const hdr = $(".hdr-r");
     if (hdr) { const b = document.createElement("button"); b.className = "btn ghost small"; b.type = "button"; b.textContent = "Sair"; b.title = "Sair da conta " + session.user.email; b.onclick = dono ? sair : sairConvidado; hdr.insertBefore(b, hdr.querySelector(".sync")); }

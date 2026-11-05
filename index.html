@@ -379,6 +379,19 @@ dialog#glDlg::backdrop{background:rgba(0,0,0,.5)}
 #glForm textarea{background:#121829;border:1px solid var(--line);border-radius:9px;padding:9px 11px;width:100%;min-height:80px;font:inherit;color:inherit;resize:vertical}
 #glValor{font-family:var(--f-mono);font-size:20px;font-weight:600}
 @media (max-width:640px){dialog#glDlg{width:100vw;max-width:100vw;margin:auto 0 0;border-radius:16px 16px 0 0;max-height:92dvh;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}}
+/* ---------- Energia solar ---------- */
+.chart .ec{fill:var(--gold)} .chart .er{fill:var(--up)}
+.encalc{background:var(--gold-soft);border:1px solid rgba(247,181,56,.35);border-radius:10px;padding:12px 14px;font-family:var(--f-mono);font-size:13px;line-height:1.7;overflow-wrap:anywhere}
+.encalc b.tot{display:block;margin-top:6px;font-size:18px;color:var(--gold)}
+.encalc .eco{color:var(--up)}
+.enhint{font-size:11.5px;color:var(--ink-3);min-height:1.2em}
+.enhint button{background:none;border:0;padding:0 0 0 4px;color:var(--accent);font:inherit;font-weight:600;cursor:pointer;text-decoration:underline}
+#enFormL h3,#enFormC h3{margin:0}
+.ensub{display:block;font-size:12px;color:var(--ink-3);white-space:normal}
+#enTblL .acts,#enTblC .acts,#enTblAnual .acts{flex-wrap:wrap}
+[data-panel="energia"] .tbl.stack td .st{align-self:flex-start}
+@media (min-width:1000px){#ovKpis:has(> :nth-child(7)){grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media (max-width:720px){#ovKpis .ckpi:last-child:nth-child(odd){grid-column:1/-1}}
 </style>
 <style>
 html,body{margin:0;background:var(--bg)}
@@ -427,6 +440,7 @@ html,body{margin:0;background:var(--bg)}
     <button role="tab" data-tab="chacara" aria-selected="false"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21V10l9-6 9 6v11"/><path d="M9 21v-6h6v6"/></svg></span><span class="tl">Chácara</span><span class="ts">Chácara</span></button>
     <button role="tab" data-tab="veiculos" class="mx" aria-selected="false"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 16v-4l2-5h12l2 5v4z"/><circle cx="7.5" cy="16.5" r="1.8"/><circle cx="16.5" cy="16.5" r="1.8"/><path d="M4 12h16"/></svg></span><span class="tl">Veículos</span><span class="ts">Veículos</span></button>
     <button role="tab" data-tab="luzagua" class="mx" aria-selected="false"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></svg></span><span class="tl">Luz e água</span><span class="ts">Luz</span></button>
+    <button role="tab" data-tab="energia" class="mx" aria-selected="false"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg></span><span class="tl">Energia</span><span class="ts">Energia</span></button>
     <button role="tab" data-tab="glicemia" class="mx" aria-selected="false"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3s6 7 6 11.5a6 6 0 0 1-12 0C6 10 12 3 12 3z"/></svg></span><span class="tl">Glicemia</span><span class="ts">Glicemia</span></button>
     <button type="button" id="navMore" class="more" aria-haspopup="dialog" aria-expanded="false"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="1.6"/><circle cx="12" cy="6" r="1.6"/><circle cx="18" cy="6" r="1.6"/><circle cx="6" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18" cy="12" r="1.6"/><circle cx="6" cy="18" r="1.6"/><circle cx="12" cy="18" r="1.6"/><circle cx="18" cy="18" r="1.6"/></svg></span><span class="ts" id="navMoreTxt">Mais</span></button>
   </div>
@@ -960,6 +974,107 @@ html,body{margin:0;background:var(--bg)}
     </div>
   </section>
 
+  <section class="panel" data-panel="energia" hidden>
+    <div class="seg chseg" aria-label="Parte da energia solar"><button type="button" data-enseg="resumo" aria-pressed="true">Resumo</button><button type="button" data-enseg="lanc" aria-pressed="false">Lançamentos</button><button type="button" data-enseg="cli" aria-pressed="false">Clientes</button></div>
+
+    <div id="enResumo" class="panel">
+      <div class="card">
+        <div class="headrow">
+          <div><h2>Venda de energia solar</h2><p class="sub">Créditos da usina compensados nas contas dos clientes</p></div>
+          <select id="enAno" aria-label="Ano" style="width:auto"></select>
+        </div>
+        <div class="ckpis ck4" id="enAnoKpis"></div>
+        <div class="chart" id="enChart" style="margin-top:16px"></div>
+        <div class="ovleg"><span><i style="background:var(--gold)"></i>A cobrar</span><span><i style="background:var(--up)"></i>Recebido</span></div>
+      </div>
+      <div class="card">
+        <div class="headrow">
+          <div><h2>Contas do mês</h2><p class="sub" id="enMesSub">Mês de referência da conta da Equatorial</p></div>
+          <div class="fatnav"><button class="btn ghost small" id="enPrev" aria-label="Mês anterior">‹</button><span class="mes" id="enMes"></span><button class="btn ghost small" id="enNext" aria-label="Próximo mês">›</button></div>
+        </div>
+        <div class="ckpis" id="enMesKpis"></div>
+        <div class="tbl stack" style="margin-top:12px"><table id="enTblMes"></table></div>
+      </div>
+      <div class="card">
+        <h2>Relatório anual para o cliente</h2>
+        <p class="sub" id="enRaSub">PDF com o que o cliente pagou e economizou no ano</p>
+        <div class="tbl stack"><table id="enTblAnual"></table></div>
+      </div>
+      <div class="card">
+        <h2>Saldo por cliente</h2>
+        <p class="sub">Todos os meses</p>
+        <div class="tbl stack"><table id="enTblSaldo"></table></div>
+      </div>
+    </div>
+
+    <div id="enLanc" class="panel" hidden>
+      <div class="card">
+        <div class="headrow">
+          <div><h2>Lançamentos</h2><p class="sub">Uma linha por conta: cliente × mês de referência</p></div>
+          <button class="btn" type="button" id="enNovoL">+ Novo lançamento</button>
+        </div>
+        <form class="f" id="enFormL" hidden style="margin-top:14px">
+          <h3 class="wide" id="enFormLTit" style="font-size:16px">Novo lançamento</h3>
+          <label class="fld">Mês de referência<input type="month" id="elMes" required></label>
+          <label class="fld">Cliente<select id="elCli" required></select></label>
+          <label class="fld">kWh compensado<input type="number" step="0.01" min="0" id="elKwh" inputmode="decimal" required><span class="enhint" id="ehKwh"></span></label>
+          <label class="fld">Valor do kWh (R$)<input type="number" step="0.000001" min="0" id="elTarifa" inputmode="decimal" required><span class="enhint" id="ehTarifa"></span></label>
+          <label class="fld">Desconto (%)<input type="number" step="0.01" min="0" max="100" id="elDesc" inputmode="decimal" required></label>
+          <label class="fld">Bandeira do mês<select id="elBand"><option value="verde">Verde</option><option value="amarela">Amarela</option><option value="vermelha1">Vermelha patamar 1</option><option value="vermelha2">Vermelha patamar 2</option></select><span class="enhint" id="ehBand"></span></label>
+          <label class="fld">Valor da bandeira (R$/kWh)<input type="number" step="0.00001" min="0" id="elBandVal" inputmode="decimal"></label>
+          <label class="fld">Ilum. pública (R$)<input type="number" step="0.01" min="0" id="elCip" inputmode="decimal"><span class="enhint" id="ehCip"></span></label>
+          <label class="fld">Conta da distribuidora (R$)<input type="number" step="0.01" min="0" id="elConta" inputmode="decimal"></label>
+          <label class="fld">Vencimento da cobrança<input type="date" id="elVenc"></label>
+          <label class="fld">Data do pagamento<input type="date" id="elPagto"></label>
+          <label class="fld">Valor recebido (R$)<input type="number" step="0.01" min="0" id="elReceb" inputmode="decimal"></label>
+          <label class="fld wide">Observações<input id="elObs" autocomplete="off" maxlength="300"></label>
+          <div class="encalc wide" id="elCalc">Preencha kWh e valor do kWh para ver o cálculo.</div>
+          <div class="edbtns wide" style="justify-content:flex-start;margin-top:0"><button class="btn" type="submit" id="elSalvar">Salvar lançamento</button><button class="btn ghost" type="button" id="elCancel">Cancelar</button></div>
+        </form>
+        <div class="msg" id="enMsgL"></div>
+        <div class="headrow" style="margin-top:8px;justify-content:flex-start">
+          <select id="enFMes" aria-label="Filtrar por mês" style="width:auto"></select>
+          <select id="enFCli" aria-label="Filtrar por cliente" style="width:auto"></select>
+          <select id="enFSt" aria-label="Filtrar por situação" style="width:auto"><option value="">Todas as situações</option><option>Pendente</option><option>Atrasado</option><option>Pago</option></select>
+        </div>
+        <div class="tbl stack" style="margin-top:10px"><table id="enTblL"></table></div>
+      </div>
+    </div>
+
+    <div id="enCli" class="panel" hidden>
+      <div class="card">
+        <div class="headrow">
+          <div><h2>Clientes</h2><p class="sub">Unidades consumidoras que recebem os créditos</p></div>
+          <button class="btn" type="button" id="enNovoC">+ Novo cliente</button>
+        </div>
+        <form class="f" id="enFormC" hidden style="margin-top:14px">
+          <h3 class="wide" id="enFormCTit" style="font-size:16px">Novo cliente</h3>
+          <label class="fld wide">Nome<input id="ecNome" required autocomplete="off" maxlength="120"></label>
+          <label class="fld">Nº da UC<input id="ecUc" autocomplete="off" maxlength="40"></label>
+          <label class="fld">CPF/CNPJ<input id="ecDoc" autocomplete="off" maxlength="30"></label>
+          <label class="fld">Telefone<input id="ecTel" autocomplete="off" inputmode="tel" maxlength="30"></label>
+          <label class="fld">Desconto padrão (%)<input type="number" step="0.01" min="0" max="100" id="ecDesc" inputmode="decimal" required></label>
+          <label class="fld">Rateio da geração (%)<input type="number" step="0.01" min="0" max="100" id="ecRateio" inputmode="decimal"></label>
+          <label class="fld wide">Observações<input id="ecObs" autocomplete="off" maxlength="300"></label>
+          <div class="edbtns wide" style="justify-content:flex-start;margin-top:0"><button class="btn" type="submit">Salvar cliente</button><button class="btn ghost" type="button" id="ecCancel">Cancelar</button></div>
+        </form>
+        <div class="msg" id="enMsgC"></div>
+        <div class="tbl stack" style="margin-top:10px"><table id="enTblC"></table></div>
+      </div>
+      <div class="card">
+        <h2>Seus dados no PDF de cobrança</h2>
+        <p class="sub">Aparecem no rodapé do PDF que você manda para o cliente</p>
+        <form class="f" id="enFormCfg">
+          <label class="fld wide">Seu nome<input id="ecfNome" autocomplete="off" maxlength="120"></label>
+          <label class="fld">Chave PIX<input id="ecfPix" autocomplete="off" maxlength="120"></label>
+          <label class="fld">Telefone / WhatsApp<input id="ecfTel" autocomplete="off" inputmode="tel" maxlength="30"></label>
+          <button class="btn" type="submit">Salvar meus dados</button>
+        </form>
+        <div class="msg" id="enMsgCfg"></div>
+      </div>
+    </div>
+  </section>
+
   <section class="panel" data-panel="glicemia" hidden>
     <div class="card">
       <div class="headrow">
@@ -1019,7 +1134,7 @@ html,body{margin:0;background:var(--bg)}
 <datalist id="ativosList"></datalist>
 <datalist id="fontesList"></datalist>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 <script src="backend.js"></script>
