@@ -1,6 +1,6 @@
 # Controle Financeiro
 
-Site pessoal do Higor: investimentos, cartões, contas a pagar, chácara (leite, queijo, fiado, animais) e veículos.
+Site pessoal do Higor: investimentos, cartões, contas a pagar, chácara (leite, queijo, fiado, animais), veículos e venda de energia solar.
 
 Endereço: **https://higor2008-hash.github.io/controle-financeiro/**
 
@@ -20,6 +20,7 @@ Endereço: **https://higor2008-hash.github.io/controle-financeiro/**
 
 - `index.html`: página e visual.
 - `app.js`: telas e regras (mesmo código da versão no Claude).
+- `energia.js`: aba Energia solar (clientes, lançamentos, PDF de cobrança e relatório anual; coleções `solclientes`, `sollancs`, `solconfig`).
 - `backend.js`: login e ligação com o Supabase.
 - `config.js`: endereço e chave pública do Supabase.
 - `supabase/schema.sql`: estrutura do banco (pode ser rodado de novo sem apagar dados).

@@ -703,7 +703,8 @@ function renderOv(patrimonio){
     k('cartoes','Fatura do cartão',R(ft),ft?(fatPaga?'paga':nCart+' cartã'+(nCart===1?'o':'os')+' · em aberto'):'nada neste mês')+
     k('carteira','Investimentos',R(patrimonio),'patrimônio hoje','gold')+
     (()=>{const VD=chVendido(ym), u=VD.n?null:chUltMes(ym); return k('chacara','Chácara no mês',R(VD.tot),VD.tot?'vendido · lucro '+R(lucro):(u?'nada ainda · '+MESES_L[+u.slice(5)-1].toLowerCase()+' '+R(chVendido(u).tot):'nada vendido'),VD.tot?'up':'');})()+
-    k('luzagua','Luz e água',uaPg+' de '+uas.length,'pagas neste mês');
+    k('luzagua','Luz e água',uaPg+' de '+uas.length,'pagas neste mês')+
+    (()=>{const e=window.CFEnergia&&window.CFEnergia.tile(); return e?k('energia','Energia solar',e.v,e.s,e.c):'';})();
   const meses=[-4,-3,-2,-1,0,1].map(d=>ymAdd(ym,d));
   $('#ovChart').innerHTML=ovBars(meses,[meses.map(m=>soma(S.receitas.filter(r=>r.mes===m))),meses.map(m=>soma(contasDoMes(m,P)))],['rc','dc'])
     +'<div class="ovleg"><span><i style="background:#4fd08a"></i>Receitas</span><span><i style="background:#ff5c74"></i>Contas</span></div>';
@@ -1547,12 +1548,12 @@ $('#glPdf').addEventListener('click',async()=>{
 });
 
 /* ---------- Abas ---------- */
-const TABS=['resumo','carteira','dividendos','aporte','lancar','cartoes','contas','chacara','veiculos','luzagua','glicemia'];
+const TABS=['resumo','carteira','dividendos','aporte','lancar','cartoes','contas','chacara','veiculos','luzagua','energia','glicemia'];
 function go(t){ if(t==='fiado'){t='chacara'; chSeg('fiado');} if(!TABS.includes(t)) t='resumo'; if(document.body.classList.contains('guest')) t='glicemia';
   document.body.classList.toggle('tab-glicemia',t==='glicemia');
   document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));
   document.querySelectorAll('[data-panel]').forEach(p=>p.hidden=p.dataset.panel!==t);
-  $('#kpis').hidden=(t==='contas'||t==='cartoes'||t==='chacara'||t==='veiculos'||t==='luzagua'||t==='glicemia');
+  $('#kpis').hidden=(t==='contas'||t==='cartoes'||t==='chacara'||t==='veiculos'||t==='luzagua'||t==='energia'||t==='glicemia');
   if(t==='glicemia') glRender();
   secClose(); const mx=document.querySelector(`nav.tabs .mx[data-tab="${t}"] .ts`); const nm=$('#navMore'); nm.classList.toggle('on',!!mx); $('#navMoreTxt').textContent=mx?mx.textContent:'Mais'; go.dots=go.dots||nm.querySelector('.ic').innerHTML; nm.querySelector('.ic').innerHTML=mx?mx.parentNode.querySelector('.ic').innerHTML:go.dots;
   try{localStorage.setItem('carteira-tab',t);}catch(e){}
@@ -1574,5 +1575,6 @@ $('#oData').value=today(); $('#dData').value=today(); $('#gData').value=today();
 $('#gCat').innerHTML=CATS.map(c=>`<option>${c}</option>`).join('');
 $('#ctCat').innerHTML=CCATS.map(c=>`<option>${c}</option>`).join(''); $('#ctM').value=today().slice(0,7);
 modOptions($('#oMod')); modOptions($('#iCls'),true); syncOpForm(); syncIndForm();
+window.cfRender=()=>{try{render();}catch(e){}};
 boot();
 })();
