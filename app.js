@@ -735,8 +735,22 @@ const kfmtOv=v=>v>=1e6?'R$ '+N2.format(v/1e6)+' mi':v>=1e3?'R$ '+(v/1e3).toFixed
 function contasDoMes(ym,P){
   const L=S.contas.filter(c=>c.mes===ym).map(c=>({...c,auto:false}));
   const porCard={}; P.filter(x=>x.ym===ym).forEach(x=>{porCard[x.c.id]=(porCard[x.c.id]||0)+x.v;});
+  const ymHoje=today().slice(0,7);
   for(const [cid,v] of Object.entries(porCard)){
-    if(L.some(c=>c.cartao===cid)) continue;
+    const man=L.filter(c=>c.cartao===cid);
+    if(man.length){
+      // Já existe a fatura lançada à mão em Contas a pagar: soma nela as parcelas lançadas na aba Cartões que ainda não estão nos itens.
+      // Meses passados já pagos ficam como estão (a fatura paga já tinha esses gastos).
+      const alvo=man.find(c=>!c.pago)||(ym>=ymHoje?man[0]:null); if(!alvo) continue;
+      const its=(alvo.itens||[]).map(i=>({...i})), usado=new Set(), novos=[];
+      P.filter(x=>x.ym===ym&&x.c.id===cid).forEach(x=>{
+        const k=x.n>1?x.i+'/'+x.n:'', re=new RegExp('(^|\\D)'+x.i+'/'+x.n+'(\\D|$)');
+        const ix=its.findIndex((i,q)=>!usado.has(q)&&Math.abs((+i.v||0)-x.v)<=0.02&&(!k||!/\d+\/\d+/.test(i.d||'')||re.test(i.d||'')));
+        if(ix>=0) usado.add(ix); else novos.push({d:(x.g.descricao||'Gasto no cartão')+(k?' '+k:''),v:x.v,novo:1});
+      });
+      if(novos.length){ const add=Math.round(novos.reduce((s,i)=>s+i.v,0)*100)/100; alvo.valor=Math.round(((+alvo.valor||0)+add)*100)/100; alvo.itens=[...its,...novos]; alvo.doCartao=add; }
+      continue;
+    }
     const c=S.cartoes.find(k=>k.id===cid);
     L.push({id:'auto-'+cid,mes:ym,descricao:'Fatura '+(c?c.nome:cid),categoria:'Cartão',valor:Math.round(v*100)/100,auto:true,cartao:cid,venc:c?venceEm(c,ym):null,pago:!!((S.faturas||[]).find(f=>f.id==='fp-'+cid+'-'+ym)||{}).pago});
   }
@@ -755,10 +769,10 @@ function renderContas(){
     <div class="ckpi"><div class="l">A pagar em ${MESES_L[+ctYM.slice(5)-1]}</div><div class="v">${R(tot)}</div><div class="s">${L.length} conta${L.length===1?'':'s'} · ${tot-pago>0.004?'faltam '+R(tot-pago):'tudo pago'}</div></div>
     <div class="ckpi"><div class="l">Receitas do mês</div><div class="v">${R(rt+cR)}</div><div class="s">${rec.length?rec.length+' entrada'+(rec.length===1?'':'s'):(cR?'':'Lance suas receitas abaixo')}${cR?(rec.length?' · ':'')+'chácara '+R(cR):''}</div></div>
     <div class="ckpi"><div class="l">Sobra do mês</div><div class="v ${temRec?cls(saldo):''}">${temRec?R(saldo):'—'}</div><div class="s">${temRec?(saldo>=0?'receitas menos contas':'as contas passam das receitas')+(cR||cD?' · com chácara ('+R(cR-cD)+')':''):'precisa das receitas do mês'}</div></div>`;
-  const itens=c=>c.itens&&c.itens.length?`<details class="itens"><summary>${c.itens.length} ite${c.itens.length===1?'m':'ns'}</summary><ul>${c.itens.map(i=>`<li><span>${esc(i.d)}</span><span class="num">${R(i.v)}</span></li>`).join('')}</ul></details>`:'';
+  const itens=c=>c.itens&&c.itens.length?`<details class="itens"><summary>${c.itens.length} ite${c.itens.length===1?'m':'ns'}</summary><ul>${c.itens.map(i=>`<li><span>${esc(i.d)}${i.novo?' <span class="sub2">(aba Cartões)</span>':''}</span><span class="num">${R(i.v)}</span></li>`).join('')}</ul></details>`:'';
   $('#tblContas').innerHTML=`<thead><tr><th>Pago</th><th>Conta</th><th>Situação</th><th class="n">Valor</th><th></th></tr></thead><tbody>${L.length?L.map(c=>`<tr class="${c.pago?'pago':''}">
     <td>${c.auto?`<input type="checkbox" class="ckpago" data-fpago="${esc(c.cartao)}|${esc(c.mes)}" ${c.pago?'checked':''} aria-label="Marcar ${esc(c.descricao)} como paga" title="Fatura vem da aba Cartões">`:`<input type="checkbox" class="ckpago" data-pago="${esc(c.id)}" ${c.pago?'checked':''} aria-label="Marcar ${esc(c.descricao)} como paga">`}</td>
-    <td style="white-space:normal;min-width:11em"><span class="cdesc">${esc(c.descricao)}</span>${c.parcela?` <span class="sub2">${esc(c.parcela)}</span>`:''}${!c.auto&&vencData(c)?` <span class="sub2">· vence ${fmtD(vencData(c))}</span>`:''}${c.auto?` <span class="sub2">· da aba Cartões${c.venc?', vence '+esc(c.venc):''}</span>`:''}${itens(c)}</td>
+    <td style="white-space:normal;min-width:11em"><span class="cdesc">${esc(c.descricao)}</span>${c.parcela?` <span class="sub2">${esc(c.parcela)}</span>`:''}${!c.auto&&vencData(c)?` <span class="sub2">· vence ${fmtD(vencData(c))}</span>`:''}${c.auto?` <span class="sub2">· da aba Cartões${c.venc?', vence '+esc(c.venc):''}</span>`:''}${c.doCartao?` <span class="sub2">· inclui ${R(c.doCartao)} lançados na aba Cartões</span>`:''}${itens(c)}</td>
     <td>${c.pago?'<span class="st ok">Paga</span>':c.mes<today().slice(0,7)?'<span class="st late">Atrasada</span>':'<span class="st wait">A pagar</span>'} <span class="sub2">${esc(c.categoria||'Outros')}</span></td><td class="n">${R(+c.valor)}</td>
     <td>${c.auto?`<span class="acts">${c.pago?'<button class="btn ghost small" type="button" data-paybtn>Desfazer</button>':'<button class="btn small" type="button" data-paybtn>Pagar</button>'}<button class="btn ghost small" data-goto="cartoes">Ver</button></span>`:`<span class="acts">${c.pago?'<button class="btn ghost small" type="button" data-paybtn>Desfazer</button>':'<button class="btn small" type="button" data-paybtn>Pagar</button>'}<button class="btn ghost small" data-ed="contas" data-id="${esc(c.id)}">Editar</button><button class="btn danger small" data-del="contas" data-id="${esc(c.id)}">Excluir</button></span>`}</td></tr>`).join(''):`<tr><td colspan="5" class="empty">Nenhuma conta em ${ymNome(ctYM)}.</td></tr>`}</tbody>${L.length?`<tfoot><tr><td colspan="3">Total do mês</td><td class="n">${R(tot)}</td><td></td></tr></tfoot>`:''}`;
   const meses=[...Array(12)].map((_,i)=>ymAdd(today().slice(0,7),i));
@@ -778,6 +792,7 @@ document.addEventListener('change',async e=>{const k=e.target.closest('[data-fpa
 });
 document.addEventListener('change',async e=>{const k=e.target.closest('[data-pago]'); if(!k) return;
   const c=S.contas.find(x=>x.id===k.dataset.pago); if(!c) return; const {id,...d}=c;
+  if(k.checked){ const mg=contasDoMes(c.mes,parcelas()).find(x=>x.id===id); if(mg&&mg.doCartao){ d.valor=mg.valor; d.itens=mg.itens.map(({novo,...i})=>i); } }
   try{await store.put('contas',id,{...d,pago:k.checked});}catch(err){k.checked=!k.checked; alert(errTxt(err));}
 });
 $('#ctCartao').addEventListener('change',e=>{
