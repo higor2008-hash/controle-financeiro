@@ -905,6 +905,15 @@ function edSchema(col,d){
         {k:'_valor',l:'Valor (R$)',t:'number',step:'0.01'}]}; }
   }
 }
+/* Contas que se repetem: as mesmas parcelas (ex.: 3/12) ou a mesma conta nos meses seguintes, ainda a pagar */
+const parcN=p=>{const m=/^\s*(\d+)\s*\/\s*(\d+)\s*$/.exec(p||''); return m?{i:+m[1],n:+m[2]}:null;};
+const normD=t=>(t||'').trim().toLowerCase();
+function contasSeguintes(d){
+  if(!d||!d.mes||d.cartao||/^av-/.test(d.id||'')) return [];
+  const pd=parcN(d.parcela);
+  return S.contas.filter(c=>c.id!==d.id&&!c.pago&&c.mes>d.mes&&!c.cartao&&normD(c.descricao)===normD(d.descricao)&&(()=>{
+    const pc=parcN(c.parcela); if(pd) return !!pc&&pc.n===pd.n&&pc.i>pd.i; return !pc; })()).sort((a,b)=>a.mes.localeCompare(b.mes));
+}
 let edCur=null;
 function openEd(col,id){
   const d=S[colKey(col)].find(x=>x.id===id); if(!d) return;
@@ -914,7 +923,9 @@ function openEd(col,id){
   $('#edFields').innerHTML=sc.f.map((f,i)=>{const v=val(f);
     const inp=f.t==='select'?`<select data-k="${f.k}">${f.opts.map(([o,l])=>`<option value="${esc(o)}" ${String(o)===String(v)?'selected':''}>${esc(l)}</option>`).join('')}</select>`
       :`<input data-k="${f.k}" type="${f.t}" value="${esc(v)}" ${f.step?`step="${f.step}"`:''} ${f.min!=null?`min="${f.min}"`:''} ${f.max!=null?`max="${f.max}"`:''} ${f.list?`list="${f.list}"`:''} ${f.t==='number'?'inputmode="decimal"':''} ${f.opt?'':'required'} autocomplete="off">`;
-    return `<label class="fld${f.wide?' wide':''}">${esc(f.l)}${inp}</label>`;}).join('');
+    return `<label class="fld${f.wide?' wide':''}">${esc(f.l)}${inp}</label>`;}).join('')
+    +(()=>{ if(col!=='contas') return ''; const sg=contasSeguintes(d); if(!sg.length) return '';
+      return `<label class="fld wide" style="flex-direction:row;align-items:center;gap:8px;font-size:13px;color:var(--ink)"><input type="checkbox" id="edSeg" checked style="width:auto"> Mudar também ${sg.length===1?'o mês seguinte':'os '+sg.length+' meses seguintes'} a pagar (${d.parcela?'parcelas até '+esc(sg[sg.length-1].parcela):'até '+ymNome(sg[sg.length-1].mes)})</label>`; })();
   const dl=$('#edDlg'); if(dl.showModal) dl.showModal(); else dl.setAttribute('open','');
   setTimeout(()=>{const first=dl.querySelector('[data-k]'); if(first&&!matchMedia('(max-width:640px)').matches) first.focus();},30);
 }
@@ -941,7 +952,14 @@ $('#edForm').addEventListener('submit',async e=>{
   if(col==='licenc'){ if(!data.venc) data.venc=null; data.pagoEm=data.pago?(d.pagoEm||today()):null; }
   if(col==='compras'&&!(data.qtd>0)){flash(m,'Informe a quantidade.');return;}
   if('valor' in data&&col!=='gastos'&&!(data.valor>0)){flash(m,'Informe o valor.');return;}
-  try{ $('#edSave').disabled=true; await store.put(col,id,data); closeEd(); }
+  const segL=col==='contas'&&$('#edSeg')&&$('#edSeg').checked?contasSeguintes(d):[];
+  try{ $('#edSave').disabled=true; await store.put(col,id,data);
+    // Repete a mudança (valor, descrição, categoria, dia) nos meses seguintes ainda a pagar
+    if(segL.length){
+      const mud={}; for(const k of ['valor','descricao','categoria','dia']) if((data[k]??null)!==(d[k]??null)) mud[k]=data[k];
+      if(Object.keys(mud).length) for(const c of segL){ const {id:cid,...cd}=c; const nd={...cd,...mud}; if(nd.dia==null) delete nd.dia; await store.put('contas',cid,nd); }
+    }
+    closeEd(); }
   catch(err){ flash(m,errTxt(err)); }
   finally{ $('#edSave').disabled=false; }
 });
