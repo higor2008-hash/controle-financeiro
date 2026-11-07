@@ -774,7 +774,7 @@ function renderContas(){
     <td>${c.auto?`<input type="checkbox" class="ckpago" data-fpago="${esc(c.cartao)}|${esc(c.mes)}" ${c.pago?'checked':''} aria-label="Marcar ${esc(c.descricao)} como paga" title="Fatura vem da aba Cartões">`:`<input type="checkbox" class="ckpago" data-pago="${esc(c.id)}" ${c.pago?'checked':''} aria-label="Marcar ${esc(c.descricao)} como paga">`}</td>
     <td style="white-space:normal;min-width:11em"><span class="cdesc">${esc(c.descricao)}</span>${c.parcela?` <span class="sub2">${esc(c.parcela)}</span>`:''}${!c.auto&&vencData(c)?` <span class="sub2">· vence ${fmtD(vencData(c))}</span>`:''}${c.auto?` <span class="sub2">· da aba Cartões${c.venc?', vence '+esc(c.venc):''}</span>`:''}${c.doCartao?` <span class="sub2">· inclui ${R(c.doCartao)} lançados na aba Cartões</span>`:''}${itens(c)}</td>
     <td>${c.pago?'<span class="st ok">Paga</span>':c.mes<today().slice(0,7)?'<span class="st late">Atrasada</span>':'<span class="st wait">A pagar</span>'} <span class="sub2">${esc(c.categoria||'Outros')}</span></td><td class="n">${R(+c.valor)}</td>
-    <td>${c.auto?`<span class="acts">${c.pago?'<button class="btn ghost small" type="button" data-paybtn>Desfazer</button>':'<button class="btn small" type="button" data-paybtn>Pagar</button>'}<button class="btn ghost small" data-goto="cartoes">Ver</button></span>`:`<span class="acts">${c.pago?'<button class="btn ghost small" type="button" data-paybtn>Desfazer</button>':'<button class="btn small" type="button" data-paybtn>Pagar</button>'}<button class="btn ghost small" data-ed="contas" data-id="${esc(c.id)}">Editar</button><button class="btn danger small" data-del="contas" data-id="${esc(c.id)}">Excluir</button></span>`}</td></tr>`).join(''):`<tr><td colspan="5" class="empty">Nenhuma conta em ${ymNome(ctYM)}.</td></tr>`}</tbody>${L.length?`<tfoot><tr><td colspan="3">Total do mês</td><td class="n">${R(tot)}</td><td></td></tr></tfoot>`:''}`;
+    <td>${c.auto?`<span class="acts">${c.pago?'<button class="btn ghost small" type="button" data-paybtn>Desfazer</button>':'<button class="btn small" type="button" data-paybtn>Pagar</button>'}<button class="btn ghost small" data-goto="cartoes">Ver</button></span>`:`<span class="acts">${c.pago?'<button class="btn ghost small" type="button" data-paybtn>Desfazer</button>':'<button class="btn small" type="button" data-paybtn>Pagar</button>'}${/^av-/.test(c.id)?'<button class="btn ghost small" type="button" data-avver>Editar</button>':`<button class="btn ghost small" data-ed="contas" data-id="${esc(c.id)}">Editar</button>`}<button class="btn danger small" data-del="contas" data-id="${esc(c.id)}">Excluir</button></span>`}</td></tr>`).join(''):`<tr><td colspan="5" class="empty">Nenhuma conta em ${ymNome(ctYM)}.</td></tr>`}</tbody>${L.length?`<tfoot><tr><td colspan="3">Total do mês</td><td class="n">${R(tot)}</td><td></td></tr></tfoot>`:''}`;
   const meses=[...Array(12)].map((_,i)=>ymAdd(today().slice(0,7),i));
   const rows=meses.map(ym=>({ym,v:contasDoMes(ym,P).reduce((s,c)=>s+(+c.valor||0),0)}));
   const mx=Math.max(...rows.map(r=>r.v),1);
@@ -815,6 +815,7 @@ $('#fConta').addEventListener('submit',async e=>{
   }catch(err){flash(m,errTxt(err));}
 });
 /* ---------- Gastos à vista: itens dentro da conta av-YYYY-MM ---------- */
+document.addEventListener('click',e=>{ if(e.target.closest('[data-avver]')){ const c=$('#avCard'); c.scrollIntoView({behavior:'smooth',block:'start'}); flash($('#mAv'),'Toque em Editar no gasto que quer mudar.',true); } });
 const avDoc=ym=>S.contas.find(c=>c.id==='av-'+ym);
 async function avSalva(ym,itens){
   const id='av-'+ym, cur=avDoc(ym);
@@ -828,7 +829,7 @@ function renderAv(){
   $('#avMes').textContent=MESES_L[+ctYM.slice(5)-1].toLowerCase();
   $('#avTot').textContent=L.length?R(c.valor):'';
   const ord=L.map((x,i)=>({x,i})).sort((a,b)=>(b.x.dt||'').localeCompare(a.x.dt||''));
-  $('#tblAv').innerHTML=L.length?`<thead><tr><th>Dia</th><th>O que foi</th><th>Pago com</th><th class="n">Valor</th><th></th></tr></thead><tbody>${ord.map(({x,i})=>`<tr><td class="num">${x.dt?fmtD(x.dt):'—'}</td><td style="white-space:normal">${esc(x.d)}</td><td>${esc(x.f||'—')}</td><td class="n">${R(+x.v)}</td><td><button class="btn danger small" type="button" data-avdel="${i}">Excluir</button></td></tr>`).join('')}</tbody>`
+  $('#tblAv').innerHTML=L.length?`<thead><tr><th>Dia</th><th>O que foi</th><th>Pago com</th><th class="n">Valor</th><th></th></tr></thead><tbody>${ord.map(({x,i})=>`<tr><td class="num">${x.dt?fmtD(x.dt):'—'}</td><td style="white-space:normal">${esc(x.d)}</td><td>${esc(x.f||'—')}</td><td class="n">${R(+x.v)}</td><td><span class="acts"><button class="btn ghost small" type="button" data-ed="avitem" data-id="${esc(ctYM+'|'+i)}">Editar</button><button class="btn danger small" type="button" data-avdel="${i}">Excluir</button></span></td></tr>`).join('')}</tbody>`
     :'<tbody><tr><td class="empty">Nenhum gasto à vista neste mês.</td></tr></tbody>';
   const dt=$('#avData'); if(!dt.value||dt.value.slice(0,7)!==ctYM) dt.value=today().slice(0,7)===ctYM?today():ctYM+'-01';
 }
@@ -887,6 +888,8 @@ function edSchema(col,d){
       {k:'pago',l:'Pagamento',t:'select',opts:[['1','Recebido'],['0','A receber']]}]};
     case 'clientes': return {tit:'Editar cliente',f:[{k:'nome',l:'Nome',t:'text',wide:1},{k:'telefone',l:'Telefone',t:'text',opt:1},{k:'endereco',l:'Endereço ou referência',t:'text',wide:1,opt:1},
       {k:'produto',l:'Compra',t:'select',opts:[['','Leite e queijo'],['Queijo','Queijo'],['Leite','Leite']]}]};
+    case 'avitem': return {tit:'Editar gasto à vista',sub:'Fica dentro da conta "Gastos à vista" do mês.',f:[{k:'d',l:'O que foi',t:'text',wide:1},num('v','Valor (R$)',{step:'0.01',min:0}),
+      {k:'dt',l:'Dia',t:'date',opt:1},{k:'f',l:'Pago com',t:'select',opts:['Dinheiro','Pix','Débito',...(d.f&&!['Dinheiro','Pix','Débito'].includes(d.f)?[d.f]:[])].map(c=>[c,c])}]};
     case 'chgastos': return {tit:'Editar despesa da chácara',f:[{k:'mes',l:'Mês',t:'month'},{k:'descricao',l:'Descrição',t:'text',wide:1},num('valor','Valor (R$)',{step:'0.01'})]};
     case 'veiculos': return {tit:'Editar veículo',sub:'Placa '+d.placa,f:[{k:'nome',l:'Veículo',t:'text',wide:1},{k:'renavam',l:'RENAVAM',t:'text',opt:1},{k:'obs',l:'Observação',t:'text',wide:1,opt:1}]};
     case 'chitens': return {tit:d.tipo==='despesa'?'Editar item de despesa':'Editar produto',f:[{k:'nome',l:'Nome',t:'text',wide:1},...(d.tipo==='despesa'?[]:[{k:'un',l:'Unidade',t:'select',opts:[['kg','kg'],['L','litro'],['un','unidade']]}]),num('preco',d.tipo==='despesa'?'Valor de costume (R$)':'Preço por unidade (R$)',{step:'0.01',min:0,opt:1})]};
@@ -914,9 +917,25 @@ function contasSeguintes(d){
   return S.contas.filter(c=>c.id!==d.id&&!c.pago&&c.mes>d.mes&&!c.cartao&&normD(c.descricao)===normD(d.descricao)&&(()=>{
     const pc=parcN(c.parcela); if(pd) return !!pc&&pc.n===pd.n&&pc.i>pd.i; return !pc; })()).sort((a,b)=>a.mes.localeCompare(b.mes));
 }
+/* Gasto à vista: id = "YYYY-MM|posição" dentro de contas/av-YYYY-MM */
+function avItem(id){ const [ym,i]=String(id).split('|'); const it=((avDoc(ym)||{}).itens||[])[+i]; return it?{...it,id,_ym:ym,_i:+i}:null; }
+async function avEdita(d,data,m){
+  const v=Math.round(+data.v*100)/100;
+  if(!data.d){flash(m,'Diga o que foi o gasto.');return false;}
+  if(!(v>0)){flash(m,'Informe o valor.');return false;}
+  const dt=/^\d{4}-\d{2}-\d{2}$/.test(data.dt||'')?data.dt:null;
+  const cur=avDoc(d._ym); const L=[...((cur&&cur.itens)||[])]; const old=L[d._i];
+  if(!old||old.d!==d.d||+old.v!==+d.v){flash(m,'Esse gasto mudou enquanto você editava. Feche e abra de novo.');return false;}
+  const {id:_a,_ym,_i,...resto}=d; const it={...resto,d:data.d.slice(0,120),v,dt,f:data.f};
+  const ym=dt?dt.slice(0,7):d._ym;
+  if(ym===d._ym){ L[d._i]=it; await avSalva(ym,L); }
+  else{ const L2=[...((avDoc(ym)||{}).itens||[]),it]; if(L2.length>300){flash(m,'Limite de 300 gastos à vista por mês.');return false;}
+    await avSalva(ym,L2); await avSalva(d._ym,L.filter((_,k)=>k!==d._i)); }
+  return true;
+}
 let edCur=null;
 function openEd(col,id){
-  const d=S[colKey(col)].find(x=>x.id===id); if(!d) return;
+  const d=col==='avitem'?avItem(id):S[colKey(col)].find(x=>x.id===id); if(!d) return;
   const sc=edSchema(col,d); edCur={col,id,d,sc};
   $('#edTit').textContent=sc.tit; $('#edSub').textContent=sc.sub||''; $('#edSub').hidden=!sc.sub; $('#edMsg').textContent='';
   const val=f=>f.k==='_valor'?((+d.qtd||0)*(+d.preco||0)).toFixed(2):f.k==='pago'?(d.pago?'1':'0'):(d[f.k]??'');
@@ -936,6 +955,9 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-ed]'); if(
 $('#edForm').addEventListener('submit',async e=>{
   e.preventDefault(); if(!edCur) return; const {col,id,d,sc}=edCur; const m=$('#edMsg');
   const {id:_x,...data}=d;
+  if(col==='avitem'){ for(const f of sc.f) data[f.k]=$('#edFields').querySelector(`[data-k="${f.k}"]`).value.trim();
+    try{ $('#edSave').disabled=true; if(await avEdita(d,data,m)) closeEd(); }catch(err){flash(m,errTxt(err));}finally{$('#edSave').disabled=false;}
+    return; }
   for(const f of sc.f){ const el=$('#edFields').querySelector(`[data-k="${f.k}"]`); let v=el.value.trim();
     if(f.k==='pago'){data.pago=v==='1';continue;}
     if(f.t==='number'){ if(v===''){ if(f.opt){data[f.k]=null;continue;} flash(m,`Preencha "${f.l}".`);return;} v=+v; if(!isFinite(v)){flash(m,`"${f.l}" não é um número.`);return;} }
