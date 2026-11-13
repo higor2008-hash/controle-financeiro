@@ -379,6 +379,21 @@ dialog#glDlg::backdrop{background:rgba(0,0,0,.5)}
 #glForm textarea{background:#121829;border:1px solid var(--line);border-radius:9px;padding:9px 11px;width:100%;min-height:80px;font:inherit;color:inherit;resize:vertical}
 #glValor{font-family:var(--f-mono);font-size:20px;font-weight:600}
 @media (max-width:640px){dialog#glDlg{width:100vw;max-width:100vw;margin:auto 0 0;border-radius:16px 16px 0 0;max-height:92dvh;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}}
+
+.atvlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;margin-top:14px}
+.atv{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:var(--surface-2);min-width:0}
+.atv .hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.atv .hd .tk{font-size:16px}
+.atv .nm{font-size:12.5px;color:var(--ink-2);margin:2px 0 8px;overflow-wrap:anywhere}
+.atv dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 14px;margin:0}
+.atv dt{font-size:11px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.04em}
+.atv dd{margin:0;font-family:var(--f-mono);font-weight:600;font-size:14px}
+.atv .ft{display:flex;gap:8px;justify-content:flex-end;margin-top:10px;flex-wrap:wrap}
+.atv .web{font-size:11.5px;color:var(--ink-3);margin-top:8px}
+#aInfo:empty{display:none}
+#aInfo .found{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface-2);font-size:13.5px}
+#aInfo .found b{font-family:var(--f-mono)}
+body.priv .atv dd{filter:blur(7px)}
 </style>
 <style>
 html,body{margin:0;background:var(--bg)}
@@ -419,6 +434,7 @@ html,body{margin:0;background:var(--bg)}
   <div class="wrap" role="tablist">
     <button role="tab" data-tab="resumo" aria-selected="true"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="8" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="15" width="7" height="6" rx="1.5"/></svg></span><span class="tl">Resumo</span><span class="ts">Resumo</span></button>
     <button role="tab" data-tab="carteira" aria-selected="false"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h15a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h11v3"/><circle cx="16.5" cy="13.5" r="1.3"/></svg></span><span class="tl">Carteira</span><span class="ts">Carteira</span></button>
+    <button role="tab" data-tab="acoes" class="mx" aria-selected="false"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></span><span class="tl">Ações e FIIs</span><span class="ts">Ações</span></button>
     <button role="tab" data-tab="dividendos" class="mx" aria-selected="false"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg></span><span class="tl">Dividendos</span><span class="ts">Renda</span></button>
     <button role="tab" data-tab="aporte" class="mx" aria-selected="false"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg></span><span class="tl">Onde aportar</span><span class="ts">Aportar</span></button>
     <button role="tab" data-tab="lancar" class="mx" aria-selected="false"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></span><span class="tl">Lançamentos</span><span class="ts">Lançar</span></button>
@@ -494,6 +510,34 @@ html,body{margin:0;background:var(--bg)}
       <p class="sub">CDB, LCI/LCA, Tesouro Direto, CRI/CRA, debêntures, poupança, fundos e previdência: valor aplicado contra o saldo de hoje</p>
       <div class="tbl"><table id="tblRF"></table></div>
       <p class="hint">Atualize o saldo pelo extrato do banco ou corretora clicando em "atualizar". Rendimento = saldo hoje − valor aplicado (sem descontar IR).</p>
+    </div>
+  </section>
+
+  <!-- AÇÕES E FIIs -->
+  <section class="panel" data-panel="acoes" hidden>
+    <div class="card">
+      <h2>Adicionar ação ou fundo imobiliário</h2>
+      <p class="sub">Digite o código e toque em Buscar. O nome, a cotação de hoje e os dividendos por cota vêm da internet.</p>
+      <form class="f" id="fAtv" autocomplete="off">
+        <label class="fld">Código<input id="aTk" required placeholder="MXRF11" maxlength="7" autocapitalize="characters" list="ativosList"></label>
+        <button class="btn ghost" type="button" id="aBuscar">Buscar</button>
+        <div class="wide" id="aInfo"></div>
+        <label class="fld">Quantas cotas<input id="aQtd" type="number" min="0" step="any" inputmode="decimal" required></label>
+        <label class="fld">Valor pago por cota (R$)<input id="aPreco" type="number" min="0" step="any" inputmode="decimal" required></label>
+        <label class="fld">Data da compra<input id="aData" type="date" required></label>
+        <button class="btn" type="submit">Adicionar à carteira</button>
+      </form>
+      <div class="msg" id="mAtv"></div>
+    </div>
+    <div class="card">
+      <div class="headrow">
+        <div><h2>Minhas ações e FIIs</h2><p class="sub" id="atvSub">Cotação de hoje, quanto você pagou e quanto cada um rende de dividendos</p></div>
+        <button class="btn ghost small" id="atvAtualizar" type="button">Atualizar cotações</button>
+      </div>
+      <div class="ckpis ck4" id="atvKpis"></div>
+      <div class="msg" id="mAtvUp"></div>
+      <div class="atvlist" id="atvList"></div>
+      <p class="hint">Dividendos recebidos = o que você lançou em Lançamentos › Provento recebido. "Paga por cota" e "Por mês, para você" vêm da internet (último pagamento × suas cotas) e podem mudar no próximo mês.</p>
     </div>
   </section>
 

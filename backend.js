@@ -13,6 +13,8 @@
   const recuperando = /type=recovery/.test(location.hash);
   const sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
   const T = "cf_docs";
+  // Cotação, nome e proventos de ações e FIIs (função "cotacoes" no Supabase, que consulta o Yahoo Finance).
+  window.cfCotacoes = async tickers => { const { data, error } = await sb.functions.invoke("cotacoes", { body: { tickers } }); if (error) throw error; return data; };
 
   /* ---------- Banco: tabela cf_docs (col, id, data jsonb) ---------- */
   const cache = {};               // col -> Map(id -> data)

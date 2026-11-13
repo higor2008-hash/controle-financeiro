@@ -324,7 +324,7 @@ function render(){
   const pa=Object.entries(porAtivo).sort((a,b)=>b[1].a12-a[1].a12);
   $('#tblDivAtivo').innerHTML=`<thead><tr><th>Ativo</th><th class="n">12 meses</th><th class="n">Total</th><th class="n">Yield on cost</th></tr></thead><tbody>${pa.length?pa.map(([t,x])=>`<tr><td><span class="tk">${esc(nomeOf(V,t))}</span> ${clsPill(clsOf(V,t))}</td><td class="n gold">${R(x.a12)}</td><td class="n">${R(x.tot)}</td><td class="n">${custoTk[t]?PCT(x.a12/custoTk[t]):'—'}</td></tr>`).join(''):'<tr><td colspan="4" class="empty">Nenhum provento lançado.</td></tr>'}</tbody>`;
 
-  renderCmp(V,P,d12);
+  renderCmp(V,P,d12); renderAtv(V,P);
   $('#ativosList').innerHTML=S.ativos.map(a=>`<option value="${esc(a.ticker)}">${esc((a.nome||a.ticker)+' · '+(MODS[a.classe]||MODS.outro).l)}</option>`).join('');
   renderHist(V,demo);
   renderCartoes(); renderContas(); renderVenc(parcelas()); renderOv(P.total); renderVendas(); renderVeic(); renderUa();
@@ -388,6 +388,82 @@ function renderCmp(V,P,d12){
 }
 $('#cmpSel').addEventListener('change',()=>render());
 $('#tblCmp').addEventListener('click',e=>{const tr=e.target.closest('[data-cmp]'); if(!tr) return; $('#cmpSel').value=tr.dataset.cmp; render(); $('#cmpCard').scrollIntoView({behavior:'smooth',block:'start'});});
+
+/* ---------- Ações e FIIs (cadastro fácil + cotação da internet) ---------- */
+let atvBusca=null;
+function atvWeb(a){return a&&a.web||null;}
+async function buscarCot(tks){ if(!window.cfCotacoes) throw new Error('sem_internet'); const r=await window.cfCotacoes(tks); return (r&&r.itens)||[]; }
+function atvBase(t){const a=S.ativos.find(x=>x.ticker===t); if(!a) return {ticker:t}; const {id,...rest}=a; return rest;}
+function atvSalvarWeb(t,w){
+  const b=atvBase(t); const cls=(b.classe&&MODS[b.classe])?b.classe:inferCls(t);
+  const d={...b,ticker:t,classe:cls,cotacao:w.cotacao!=null?+w.cotacao:b.cotacao,web:{nome:w.nome||null,cot:w.cotacao??null,ult:w.ultimoProvento?w.ultimoProvento.valor:null,ultData:w.ultimoProvento?w.ultimoProvento.data:null,p12:w.proventos12m??null,n12:w.nProventos12m??null,em:new Date().toISOString().slice(0,16)}};
+  if((b.dpa==null||b.dpa==='')&&w.proventos12m) d.dpa=+w.proventos12m;
+  return store.put('ativos',t,d);
+}
+function atvInfoHtml(w){
+  if(!w.ok) return `<div class="found">Não achei <b>${esc(w.ticker)}</b> na bolsa. Confira o código. Se estiver certo, você pode adicionar mesmo assim e digitar o valor.</div>`;
+  return `<div class="found"><b>${esc(w.ticker)}</b> · ${esc(w.nome||'')}<br>Cotação hoje: <b>${R(w.cotacao)}</b>${w.ultimoProvento?` · Último dividendo: <b>${R4(w.ultimoProvento.valor)}</b> por cota (${fmtD(w.ultimoProvento.data)})`:''}${w.proventos12m?` · Em 12 meses: <b>${R4(w.proventos12m)}</b> por cota`:''}</div>`;
+}
+$('#aBuscar').addEventListener('click',async()=>{
+  const t=up($('#aTk').value); const m=$('#mAtv'); $('#aTk').value=t;
+  if(!/^[A-Z0-9]{4,7}$/.test(t)){flash(m,'Digite o código, por exemplo MXRF11 ou PETR4.');return;}
+  $('#aInfo').innerHTML='<div class="found">Buscando…</div>';
+  try{ const [w]=await buscarCot([t]); atvBusca=w; $('#aInfo').innerHTML=atvInfoHtml(w); if(w.ok&&w.cotacao&&!$('#aPreco').value) $('#aPreco').value=w.cotacao; if(!$('#aData').value) $('#aData').value=today(); $('#aQtd').focus(); }
+  catch(e){ atvBusca=null; $('#aInfo').innerHTML='<div class="found">Não consegui buscar na internet agora. Você pode digitar os valores e adicionar assim mesmo.</div>'; }
+});
+$('#aTk').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('#aBuscar').click();}});
+$('#aTk').addEventListener('input',()=>{atvBusca=null;$('#aInfo').innerHTML='';});
+$('#fAtv').addEventListener('submit',async e=>{
+  e.preventDefault(); const m=$('#mAtv'); const t=up($('#aTk').value); const q=+$('#aQtd').value, p=+$('#aPreco').value;
+  if(!/^[A-Z0-9]{4,7}$/.test(t)){flash(m,'Digite o código, por exemplo MXRF11.');return;}
+  if(!(q>0)||!(p>0)){flash(m,'Informe quantas cotas e o valor pago por cota.');return;}
+  try{
+    if(atvBusca&&atvBusca.ok&&atvBusca.ticker===t) await atvSalvarWeb(t,atvBusca);
+    else if(!S.ativos.find(x=>x.ticker===t)) await store.put('ativos',t,{ticker:t,classe:inferCls(t)});
+    await store.add('compras',{ticker:t,tipo:'compra',qtd:q,preco:p,taxa:0,data:$('#aData').value||today()});
+    flash(m,`${NQ.format(q)} ${t} adicionados por ${R(q*p)}.`,true);
+    ['aTk','aQtd','aPreco'].forEach(id=>$('#'+id).value=''); $('#aInfo').innerHTML=''; atvBusca=null;
+  }catch(err){flash(m,errTxt(err));}
+});
+$('#atvAtualizar').addEventListener('click',async()=>{
+  const V=view(); if(V!==S) return; const m=$('#mAtvUp'); const b=$('#atvAtualizar');
+  const tks=posicoes(V).list.filter(x=>['acao','fii','fiagro','etf','bdr'].includes(x.classe)).map(x=>x.ticker);
+  if(!tks.length){flash(m,'Nenhuma ação ou FII na carteira ainda.');return;}
+  b.disabled=true; b.textContent='Atualizando…';
+  try{
+    const its=await buscarCot(tks); let ok=0; const falha=[];
+    for(const w of its){ if(w.ok){ await atvSalvarWeb(w.ticker,w); ok++; } else falha.push(w.ticker); }
+    flash(m,`${ok} cotações atualizadas.`+(falha.length?` Não achei: ${falha.join(', ')}.`:''),!falha.length||ok>0);
+  }catch(e){flash(m,'Não consegui buscar as cotações agora. Tente de novo daqui a pouco.');}
+  b.disabled=false; b.textContent='Atualizar cotações';
+});
+document.addEventListener('click',e=>{
+  const c=e.target.closest('[data-atvmais]'); if(!c) return;
+  const t=c.dataset.atvmais; $('#aTk').value=t; atvBusca=null; const a=S.ativos.find(x=>x.ticker===t); const w=atvWeb(a);
+  $('#aInfo').innerHTML=''; $('#aPreco').value=(a&&a.cotacao)||''; $('#aData').value=today(); $('#fAtv').scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(()=>$('#aQtd').focus(),300);
+});
+function renderAtv(V,P){
+  if(!$('#atvList')) return;
+  const ok=['acao','fii','fiagro','etf','bdr'];
+  const L=P.list.filter(x=>ok.includes(x.classe)).sort((a,b)=>(a.classe==='fii'||a.classe==='fiagro'?0:1)-(b.classe==='fii'||b.classe==='fiagro'?0:1)||b.valor-a.valor);
+  const K=L.filter(x=>x.pm&&x.cot), inv=K.reduce((s,x)=>s+x.custo,0), hojeK=K.reduce((s,x)=>s+x.valor,0), hoje=L.reduce((s,x)=>s+x.valor,0), prov=L.reduce((s,x)=>s+(x.prov||0),0), semPm=L.filter(x=>!x.pm).length;
+  let mes=0; L.forEach(x=>{const w=atvWeb(x.a); if(w&&w.ult&&(x.classe==='fii'||x.classe==='fiagro')) mes+=w.ult*x.qtd; else if(w&&w.p12) mes+=w.p12*x.qtd/12;});
+  const ult=L.map(x=>atvWeb(x.a)&&atvWeb(x.a).em).filter(Boolean).sort().pop();
+  $('#atvSub').textContent=ult?`Cotações atualizadas em ${fmtD(ult.slice(0,10))} às ${ult.slice(11,16)}`:'Toque em Atualizar cotações para buscar os valores de hoje';
+  $('#atvKpis').innerHTML=`<div class="ckpi"><div class="l">Vale hoje</div><div class="v">${R(hoje)}</div><div class="s">${L.length} ativos</div></div><div class="ckpi"><div class="l">Ganho ou perda</div><div class="v ${cls(hojeK-inv)}">${inv?(hojeK>=inv?'+':'')+R(hojeK-inv):'—'}</div><div class="s">${inv?`${hojeK>=inv?'+':''}${PCT(hojeK/inv-1)} sobre ${R(inv)} pagos`:''}${semPm?` · ${semPm} sem preço pago`:''}</div></div><div class="ckpi"><div class="l">Dividendos recebidos</div><div class="v gold">${R(prov)}</div><div class="s">lançados até hoje</div></div><div class="ckpi"><div class="l">Renda por mês</div><div class="v">${mes?R(mes):'—'}</div><div class="s">estimativa</div></div>`;
+  $('#atvList').innerHTML=L.length?L.map(x=>{
+    const w=atvWeb(x.a); const fii=x.classe==='fii'||x.classe==='fiagro';
+    const mesV=w&&w.ult?(fii?w.ult*x.qtd:(w.p12||0)*x.qtd/12):null;
+    return `<article class="atv"><div class="hd"><span class="tk">${esc(x.ticker)}</span> ${clsPill(x.classe)}${x.res!=null?` <span class="pill ${x.res>=0?'good':'bad'}">${x.res>=0?'+':''}${PCT(x.resPct)}</span>`:''}</div>
+      <div class="nm">${esc((w&&w.nome)||(x.nome!==x.ticker?x.nome:'')||'Toque em Atualizar cotações para buscar o nome')}</div>
+      <dl><div><dt>Cotas</dt><dd>${NQ.format(x.qtd)}</dd></div><div><dt>Preço médio</dt><dd>${x.pm?R(x.pm):'—'}</dd></div>
+      <div><dt>Cotação hoje</dt><dd>${x.cot?R(x.cot):'—'}</dd></div><div><dt>Vale hoje</dt><dd>${R(x.valor)}</dd></div>
+      <div><dt>Paga por cota</dt><dd class="gold">${w&&w.ult?R4(w.ult):'—'}</dd></div><div><dt>${fii?'Por mês, para você':'Por mês (média)'}</dt><dd class="gold">${mesV?R(mesV):'—'}</dd></div>
+      <div><dt>Dividendos recebidos</dt><dd>${x.prov?R(x.prov):'—'}</dd></div><div><dt>Rende ao ano</dt><dd>${w&&w.p12&&x.cot?PCT(w.p12/x.cot):'—'}</dd></div></dl>
+      ${w&&w.ultData?`<div class="web">Último dividendo pago em ${fmtD(w.ultData)}${w.p12?` · ${R4(w.p12)} por cota em 12 meses`:''}</div>`:''}
+      <div class="ft">${x.pm?'':`<button class="btn ghost small" data-edit="${esc(x.ticker)}">Informar preço pago</button>`}<button class="btn ghost small" data-atvmais="${esc(x.ticker)}">+ Comprar mais</button><button class="btn ghost small" data-goto="lancar">Lançar dividendo</button></div></article>`;
+  }).join(''):'<p class="empty">Nenhuma ação ou FII ainda. Adicione o primeiro acima.</p>';
+}
 function divHint(){
   const h=$('#dHint'); if(!h) return; const raw=$('#dTk').value.trim(), v=+$('#dValor').value;
   const V=view(); const a=V.ativos.find(x=>x.ticker===up(raw)||x.ticker===slug(raw)||(x.nome&&x.nome===raw)); const t=a?a.ticker:up(raw);
@@ -1618,7 +1694,7 @@ $('#glPdf').addEventListener('click',async()=>{
 });
 
 /* ---------- Abas ---------- */
-const TABS=['resumo','carteira','dividendos','aporte','lancar','cartoes','contas','chacara','veiculos','luzagua','glicemia'];
+const TABS=['resumo','carteira','acoes','dividendos','aporte','lancar','cartoes','contas','chacara','veiculos','luzagua','glicemia'];
 function go(t){ if(t==='fiado'){t='chacara'; chSeg('fiado');} if(!TABS.includes(t)) t='resumo'; if(document.body.classList.contains('guest')) t='glicemia';
   document.body.classList.toggle('tab-glicemia',t==='glicemia');
   document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));
