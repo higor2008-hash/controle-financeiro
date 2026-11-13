@@ -391,6 +391,11 @@ dialog#glDlg::backdrop{background:rgba(0,0,0,.5)}
 .atv .ft{display:flex;gap:8px;justify-content:flex-end;margin-top:10px;flex-wrap:wrap}
 .atv .web{font-size:11.5px;color:var(--ink-3);margin-top:8px}
 #aInfo:empty{display:none}
+.atvseg{align-self:flex-start;display:flex;flex-wrap:wrap;max-width:100%}
+.atvseg button{padding:10px 16px;font-weight:600;display:flex;flex-direction:column;align-items:flex-start;gap:1px}
+.atvseg .sub2{font-weight:400}
+@media (max-width:640px){.atvseg{width:100%}.atvseg button{flex:1 1 0;padding:10px 6px;align-items:center;font-size:13px}}
+body.priv .atvseg .sub2{filter:blur(7px)}
 #aInfo .found{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface-2);font-size:13.5px}
 #aInfo .found b{font-family:var(--f-mono)}
 body.priv .atv dd{filter:blur(7px)}
@@ -515,8 +520,9 @@ html,body{margin:0;background:var(--bg)}
 
   <!-- AÇÕES E FIIs -->
   <section class="panel" data-panel="acoes" hidden>
+    <div class="seg atvseg" id="atvBancoSeg" aria-label="Banco ou corretora"></div>
     <div class="card">
-      <h2>Adicionar ação ou fundo imobiliário</h2>
+      <h2 id="atvAddTit">Adicionar ação ou fundo imobiliário</h2>
       <p class="sub">Digite o código e toque em Buscar. O nome, a cotação de hoje e os dividendos por cota vêm da internet.</p>
       <form class="f" id="fAtv" autocomplete="off">
         <label class="fld">Código<input id="aTk" required placeholder="MXRF11" maxlength="7" autocapitalize="characters" list="ativosList"></label>
@@ -531,7 +537,7 @@ html,body{margin:0;background:var(--bg)}
     </div>
     <div class="card">
       <div class="headrow">
-        <div><h2>Minhas ações e FIIs</h2><p class="sub" id="atvSub">Cotação de hoje, quanto você pagou e quanto cada um rende de dividendos</p></div>
+        <div><h2 id="atvListTit">Minhas ações e FIIs</h2><p class="sub" id="atvSub">Cotação de hoje, quanto você pagou e quanto cada um rende de dividendos</p></div>
         <button class="btn ghost small" id="atvAtualizar" type="button">Atualizar cotações</button>
       </div>
       <div class="ckpis ck4" id="atvKpis"></div>

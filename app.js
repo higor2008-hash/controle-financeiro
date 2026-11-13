@@ -391,6 +391,12 @@ $('#tblCmp').addEventListener('click',e=>{const tr=e.target.closest('[data-cmp]'
 
 /* ---------- Ações e FIIs (cadastro fácil + cotação da internet) ---------- */
 let atvBusca=null;
+const ATV_BANCOS=['Nubank','XP','Inter'];
+let atvBanco=(()=>{try{const v=localStorage.getItem('cf-atv-banco');return v==='todos'||ATV_BANCOS.includes(v)?v:'Nubank';}catch(e){return 'Nubank';}})();
+function atvBancoDe(V,t,corr){ if(corr) return corr; const a=V.ativos.find(x=>x.ticker===t); return (a&&a.corretora)||'Nubank'; }
+function atvNorm(b){ const k=String(b||'').trim().toLowerCase(); return k.startsWith('nu')?'Nubank':k.startsWith('xp')?'XP':k.startsWith('inter')||k.includes('inter')?'Inter':String(b||'').trim()||'Nubank'; }
+function atvView(V,b){ if(b==='todos') return V; const f=x=>atvNorm(atvBancoDe(V,x.ticker,x.corretora))===b; return {...V,ops:V.ops.filter(f),divs:V.divs.filter(f)}; }
+$('#atvBancoSeg').addEventListener('click',e=>{const x=e.target.closest('[data-atvb]'); if(!x) return; atvBanco=x.dataset.atvb; try{localStorage.setItem('cf-atv-banco',atvBanco);}catch(err){} render();});
 function atvWeb(a){return a&&a.web||null;}
 async function buscarCot(tks){ if(!window.cfCotacoes) throw new Error('sem_internet'); const r=await window.cfCotacoes(tks); return (r&&r.itens)||[]; }
 function atvBase(t){const a=S.ativos.find(x=>x.ticker===t); if(!a) return {ticker:t}; const {id,...rest}=a; return rest;}
@@ -419,15 +425,16 @@ $('#fAtv').addEventListener('submit',async e=>{
   if(!(q>0)||!(p>0)){flash(m,'Informe quantas cotas e o valor pago por cota.');return;}
   try{
     if(atvBusca&&atvBusca.ok&&atvBusca.ticker===t) await atvSalvarWeb(t,atvBusca);
-    else if(!S.ativos.find(x=>x.ticker===t)) await store.put('ativos',t,{ticker:t,classe:inferCls(t)});
-    await store.add('compras',{ticker:t,tipo:'compra',qtd:q,preco:p,taxa:0,data:$('#aData').value||today()});
-    flash(m,`${NQ.format(q)} ${t} adicionados por ${R(q*p)}.`,true);
+    else if(!S.ativos.find(x=>x.ticker===t)) await store.put('ativos',t,{ticker:t,classe:inferCls(t),corretora:atvBanco==='todos'?'Nubank':atvBanco});
+    const bk=atvBanco==='todos'?atvNorm(atvBancoDe(S,t)):atvBanco;
+    await store.add('compras',{ticker:t,tipo:'compra',qtd:q,preco:p,taxa:0,data:$('#aData').value||today(),corretora:bk});
+    flash(m,`${NQ.format(q)} ${t} adicionados no ${bk} por ${R(q*p)}.`,true);
     ['aTk','aQtd','aPreco'].forEach(id=>$('#'+id).value=''); $('#aInfo').innerHTML=''; atvBusca=null;
   }catch(err){flash(m,errTxt(err));}
 });
 $('#atvAtualizar').addEventListener('click',async()=>{
   const V=view(); if(V!==S) return; const m=$('#mAtvUp'); const b=$('#atvAtualizar');
-  const tks=posicoes(V).list.filter(x=>['acao','fii','fiagro','etf','bdr'].includes(x.classe)).map(x=>x.ticker);
+  const tks=posicoes(atvView(V,'todos')).list.filter(x=>['acao','fii','fiagro','etf','bdr'].includes(x.classe)).map(x=>x.ticker);
   if(!tks.length){flash(m,'Nenhuma ação ou FII na carteira ainda.');return;}
   b.disabled=true; b.textContent='Atualizando…';
   try{
@@ -442,9 +449,14 @@ document.addEventListener('click',e=>{
   const t=c.dataset.atvmais; $('#aTk').value=t; atvBusca=null; const a=S.ativos.find(x=>x.ticker===t); const w=atvWeb(a);
   $('#aInfo').innerHTML=''; $('#aPreco').value=(a&&a.cotacao)||''; $('#aData').value=today(); $('#fAtv').scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(()=>$('#aQtd').focus(),300);
 });
-function renderAtv(V,P){
+function renderAtv(V,P0){
   if(!$('#atvList')) return;
   const ok=['acao','fii','fiagro','etf','bdr'];
+  const tot=b=>posicoes(atvView(V,b)).list.filter(x=>ok.includes(x.classe)).reduce((s,x)=>s+x.valor,0);
+  $('#atvBancoSeg').innerHTML=[...ATV_BANCOS,'todos'].map(b=>`<button type="button" data-atvb="${b}" aria-pressed="${b===atvBanco}">${b==='todos'?'Todos':b}<span class="sub2">${R(tot(b))}</span></button>`).join('');
+  $('#atvAddTit').textContent=atvBanco==='todos'?'Adicionar ação ou fundo imobiliário':`Adicionar no ${atvBanco}`;
+  $('#atvListTit').textContent=atvBanco==='todos'?'Minhas ações e FIIs (todos os bancos)':`Minhas ações e FIIs no ${atvBanco}`;
+  const P=posicoes(atvView(V,atvBanco));
   const L=P.list.filter(x=>ok.includes(x.classe)).sort((a,b)=>(a.classe==='fii'||a.classe==='fiagro'?0:1)-(b.classe==='fii'||b.classe==='fiagro'?0:1)||b.valor-a.valor);
   const K=L.filter(x=>x.pm&&x.cot), inv=K.reduce((s,x)=>s+x.custo,0), hojeK=K.reduce((s,x)=>s+x.valor,0), hoje=L.reduce((s,x)=>s+x.valor,0), prov=L.reduce((s,x)=>s+(x.prov||0),0), semPm=L.filter(x=>!x.pm).length;
   let mes=0; L.forEach(x=>{const w=atvWeb(x.a); if(w&&w.ult&&(x.classe==='fii'||x.classe==='fiagro')) mes+=w.ult*x.qtd; else if(w&&w.p12) mes+=w.p12*x.qtd/12;});
@@ -462,7 +474,7 @@ function renderAtv(V,P){
       <div><dt>Dividendos recebidos</dt><dd>${x.prov?R(x.prov):'—'}</dd></div><div><dt>Rende ao ano</dt><dd>${w&&w.p12&&x.cot?PCT(w.p12/x.cot):'—'}</dd></div></dl>
       ${w&&w.ultData?`<div class="web">Último dividendo pago em ${fmtD(w.ultData)}${w.p12?` · ${R4(w.p12)} por cota em 12 meses`:''}</div>`:''}
       <div class="ft">${x.pm?'':`<button class="btn ghost small" data-edit="${esc(x.ticker)}">Informar preço pago</button>`}<button class="btn ghost small" data-atvmais="${esc(x.ticker)}">+ Comprar mais</button><button class="btn ghost small" data-goto="lancar">Lançar dividendo</button></div></article>`;
-  }).join(''):'<p class="empty">Nenhuma ação ou FII ainda. Adicione o primeiro acima.</p>';
+  }).join(''):`<p class="empty">${atvBanco==='todos'?'Nenhuma ação ou FII ainda.':'Nada lançado no '+atvBanco+' ainda.'} Adicione o primeiro acima.</p>`;
 }
 function divHint(){
   const h=$('#dHint'); if(!h) return; const raw=$('#dTk').value.trim(), v=+$('#dValor').value;
