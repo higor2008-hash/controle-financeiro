@@ -753,7 +753,9 @@ function vencendo(P){
   return out.sort((a,b)=>a.d<b.d?-1:1);
 }
 function renderVenc(P){
-  const tab=go.cur||'resumo', L=vencendo(P).filter(x=>tab==='veiculos'?x.c.tab==='veiculos':x.c.tab!=='veiculos'), el=$('#vencBanner');  // licenciamento só aparece na aba Veículos
+  const tab=go.cur||'resumo', el=$('#vencBanner');  // aviso de vencidas só em Contas a pagar (licenciamento só na aba Veículos)
+  if(tab!=='contas'&&tab!=='veiculos'){el.hidden=true;return;}
+  const L=vencendo(P).filter(x=>tab==='veiculos'?x.c.tab==='veiculos':x.c.tab!=='veiculos');
   if(!L.length){el.hidden=true;return;}
   const hoje=today(), dias=d=>{const n=Math.round((new Date(d)-new Date(hoje))/864e5);return n===1?'amanhã':'em '+n+' dias';};
   const late=L.filter(x=>x.st==='late').length;
