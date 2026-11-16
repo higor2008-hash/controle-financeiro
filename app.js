@@ -346,7 +346,7 @@ function renderHist(V,demo){
     $('#tblHist').innerHTML=`<thead><tr><th>Data</th><th>Tipo</th><th>Ativo</th><th class="n">Qtd</th><th class="n">Preço</th><th class="n">Total</th><th></th></tr></thead><tbody>${rows.length?rows.map(o=>`<tr><td class="num">${fmtD(o.data)}</td><td>${isCot(clsOf(V,o.ticker))?(o.tipo==='venda'?'<span class="pill bad">Venda</span>':'<span class="pill good">Compra</span>'):(o.tipo==='venda'?'<span class="pill bad">Resgate</span>':'<span class="pill good">Aplicação</span>')}</td><td><span class="tk">${esc(nomeOf(V,o.ticker))}</span> ${clsPill(clsOf(V,o.ticker))}</td><td class="n">${isCot(clsOf(V,o.ticker))?NQ.format(o.qtd):'—'}</td><td class="n">${isCot(clsOf(V,o.ticker))?R(+o.preco):'—'}</td><td class="n">${R(o.qtd*o.preco+(+o.taxa||0)*(o.tipo==='venda'?-1:1))}</td><td>${del('compras',o.id)}</td></tr>`).join(''):'<tr><td colspan="7" class="empty">Nada lançado.</td></tr>'}</tbody>`;
   } else {
     const rows=[...V.divs].sort((a,b)=>(b.data||'').localeCompare(a.data||''));
-    $('#tblHist').innerHTML=`<thead><tr><th>Data</th><th>Tipo</th><th>Ativo</th><th class="n">Valor</th><th class="n">Por ação</th><th></th></tr></thead><tbody>${rows.length?rows.map(d=>`<tr><td class="num">${fmtD(d.data)}</td><td>${esc(d.tipo||'Dividendo')}</td><td class="tk">${esc(nomeOf(V,d.ticker))}</td><td class="n gold">${R(+d.valor)}</td><td class="n">${(()=>{const pa=porAcao(V,d);return pa?R4(pa):'—';})()}</td><td>${del('dividendos',d.id)}</td></tr>`).join(''):'<tr><td colspan="6" class="empty">Nada lançado.</td></tr>'}</tbody>`;
+    $('#tblHist').innerHTML=`<thead><tr><th>Data</th><th>Tipo</th><th>Ativo</th><th>Banco</th><th class="n">Valor</th><th class="n">Por ação</th><th></th></tr></thead><tbody>${rows.length?rows.map(d=>`<tr><td class="num">${fmtD(d.data)}</td><td>${esc(d.tipo||'Dividendo')}</td><td class="tk">${esc(nomeOf(V,d.ticker))}</td><td>${esc((b=>BANCO_NOME[b]||b)(atvNorm(atvBancoDe(V,d.ticker,d.corretora))))}</td><td class="n gold">${R(+d.valor)}</td><td class="n">${(()=>{const pa=porAcao(V,d);return pa?R4(pa):'—';})()}</td><td>${del('dividendos',d.id)}</td></tr>`).join(''):'<tr><td colspan="7" class="empty">Nada lançado.</td></tr>'}</tbody>`;
   }
 }
 function renderCmp(V,P,d12){
@@ -392,6 +392,7 @@ $('#tblCmp').addEventListener('click',e=>{const tr=e.target.closest('[data-cmp]'
 /* ---------- Ações e FIIs (cadastro fácil + cotação da internet) ---------- */
 let atvBusca=null;
 const ATV_BANCOS=['Nubank','XP','Inter'];
+const BANCO_NOME={Nubank:'Nubank',XP:'XP Investimentos',Inter:'Banco Inter'};
 let atvBanco=(()=>{try{const v=localStorage.getItem('cf-atv-banco');return v==='todos'||ATV_BANCOS.includes(v)?v:'Nubank';}catch(e){return 'Nubank';}})();
 function atvBancoDe(V,t,corr){ if(corr) return corr; const a=V.ativos.find(x=>x.ticker===t); return (a&&a.corretora)||'Nubank'; }
 function atvNorm(b){ const k=String(b||'').trim().toLowerCase(); return k.startsWith('nu')?'Nubank':k.startsWith('xp')?'XP':k.startsWith('inter')||k.includes('inter')?'Inter':String(b||'').trim()||'Nubank'; }
@@ -485,6 +486,7 @@ function divHint(){
   h.textContent=v>0?`≈ ${R4(v/q)} por ação/cota (${R(v)} ÷ ${NQ.format(q)} ${du===dt?'que você tinha em '+fmtD(dt):'do seu primeiro lançamento, em '+fmtD(du)}).`:`Você tinha ${NQ.format(q)} em ${fmtD(du)}. Digite o valor total para ver quanto dá por ação.`;
 }
 ['dTk','dData','dValor'].forEach(id=>{$('#'+id).addEventListener('input',divHint);$('#'+id).addEventListener('change',divHint);});
+$('#dTk').addEventListener('change',()=>{ const raw=$('#dTk').value.trim(); const a=S.ativos.find(x=>x.ticker===up(raw)||x.ticker===slug(raw)||(x.nome&&x.nome===raw)); if(a&&a.corretora){ const b=atvNorm(a.corretora); if(ATV_BANCOS.includes(b)) $('#dBanco').value=b; } });
 function R4(v){return 'R$ '+(+v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:4});}
 function fmtD(s){return s?s.slice(8,10)+'/'+s.slice(5,7)+'/'+s.slice(0,4):'—';}
 
@@ -565,7 +567,7 @@ $('#fDiv').addEventListener('submit',async e=>{
   const t=exist?exist.ticker:up(raw);
   if(!/^[A-Z0-9.\-]{2,40}$/.test(t)){flash(m,'Escolha um ativo da lista ou digite o ticker.');return;}
   if(!(v>0)){flash(m,'Informe o valor recebido.');return;}
-  try{ await store.add('dividendos',{ticker:t,tipo:$('#dTipo').value,data:$('#dData').value||today(),valor:v}); const q=isCot(clsOf(S,t))?qtdPag(S,t,$('#dData').value||today())[0]:0; flash(m,`${R(v)} de ${exist&&exist.nome||t} lançado.`+(q?` Deu ${R4(v/q)} por ação/cota.`:''),true); $('#dValor').value=''; divHint(); }
+  try{ await store.add('dividendos',{ticker:t,tipo:$('#dTipo').value,data:$('#dData').value||today(),valor:v,corretora:$('#dBanco').value}); const q=isCot(clsOf(S,t))?qtdPag(S,t,$('#dData').value||today())[0]:0; flash(m,`${R(v)} de ${exist&&exist.nome||t} lançado.`+(q?` Deu ${R4(v/q)} por ação/cota.`:''),true); $('#dValor').value=''; divHint(); }
   catch(err){flash(m,errTxt(err));}
 });
 function syncIndForm(){showOnly($('#fInd'),$('#iCls').value||inferCls(up($('#iTk').value)));}
@@ -990,7 +992,7 @@ function edSchema(col,d){
     case 'cartoes': return {tit:'Editar cartão',f:[{k:'nome',l:'Nome do cartão',t:'text',wide:1},num('fech','Dia do fechamento',{step:'1',min:1,max:31}),
       num('venc','Dia do vencimento',{step:'1',min:1,max:31}),num('limite','Limite (R$)',{step:'0.01',opt:1})]};
     case 'dividendos': return {tit:'Editar provento',f:[{k:'ticker',l:'Ativo',t:'text',list:'ativosList'},{k:'tipo',l:'Tipo',t:'select',opts:TIPOS_DIV.map(c=>[c,c])},
-      {k:'data',l:'Data',t:'date'},num('valor','Valor recebido (R$)',{step:'0.01'})]};
+      {k:'corretora',l:'Banco ou corretora',t:'select',opts:ATV_BANCOS.map(b=>[b,BANCO_NOME[b]]),def:atvNorm(atvBancoDe(S,d.ticker,d.corretora))},{k:'data',l:'Data',t:'date'},num('valor','Valor recebido (R$)',{step:'0.01'})]};
     case 'compras': { const cot=isCot(clsOf(S,d.ticker));
       return cot?{tit:'Editar compra ou venda',f:[{k:'tipo',l:'Tipo',t:'select',opts:[['compra','Compra'],['venda','Venda']]},{k:'ticker',l:'Ativo',t:'text',list:'ativosList'},
         {k:'data',l:'Data',t:'date'},num('qtd','Quantidade',{step:'any'}),num('preco','Preço por unidade (R$)',{step:'any',opt:1}),num('taxa','Taxas (R$)',{step:'0.01',opt:1})]}
@@ -1028,7 +1030,7 @@ function openEd(col,id){
   const d=col==='avitem'?avItem(id):S[colKey(col)].find(x=>x.id===id); if(!d) return;
   const sc=edSchema(col,d); edCur={col,id,d,sc};
   $('#edTit').textContent=sc.tit; $('#edSub').textContent=sc.sub||''; $('#edSub').hidden=!sc.sub; $('#edMsg').textContent='';
-  const val=f=>f.k==='_valor'?((+d.qtd||0)*(+d.preco||0)).toFixed(2):f.k==='pago'?(d.pago?'1':'0'):(d[f.k]??'');
+  const val=f=>f.k==='_valor'?((+d.qtd||0)*(+d.preco||0)).toFixed(2):f.k==='pago'?(d.pago?'1':'0'):(d[f.k]??f.def??'');
   $('#edFields').innerHTML=sc.f.map((f,i)=>{const v=val(f);
     const inp=f.t==='select'?`<select data-k="${f.k}">${f.opts.map(([o,l])=>`<option value="${esc(o)}" ${String(o)===String(v)?'selected':''}>${esc(l)}</option>`).join('')}</select>`
       :`<input data-k="${f.k}" type="${f.t}" value="${esc(v)}" ${f.step?`step="${f.step}"`:''} ${f.min!=null?`min="${f.min}"`:''} ${f.max!=null?`max="${f.max}"`:''} ${f.list?`list="${f.list}"`:''} ${f.t==='number'?'inputmode="decimal"':''} ${f.opt?'':'required'} autocomplete="off">`;
