@@ -33,3 +33,16 @@ do $$ begin
     alter publication supabase_realtime add table public.cf_docs;
   end if;
 end $$;
+
+-- Arquivos (CRLV dos veículos): bucket privado, só o dono lê e grava. PDF ou imagem, até 10 MB.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('cf-arquivos','cf-arquivos',false,10485760,array['application/pdf','image/jpeg','image/png','image/webp','image/heic','image/heif'])
+on conflict (id) do update set public=false, file_size_limit=excluded.file_size_limit, allowed_mime_types=excluded.allowed_mime_types;
+drop policy if exists cf_arquivos_ler on storage.objects;
+drop policy if exists cf_arquivos_enviar on storage.objects;
+drop policy if exists cf_arquivos_alterar on storage.objects;
+drop policy if exists cf_arquivos_apagar on storage.objects;
+create policy cf_arquivos_ler on storage.objects for select to authenticated using (bucket_id = 'cf-arquivos' and (select public.cf_e_dono()));
+create policy cf_arquivos_enviar on storage.objects for insert to authenticated with check (bucket_id = 'cf-arquivos' and (select public.cf_e_dono()));
+create policy cf_arquivos_alterar on storage.objects for update to authenticated using (bucket_id = 'cf-arquivos' and (select public.cf_e_dono())) with check (bucket_id = 'cf-arquivos' and (select public.cf_e_dono()));
+create policy cf_arquivos_apagar on storage.objects for delete to authenticated using (bucket_id = 'cf-arquivos' and (select public.cf_e_dono()));

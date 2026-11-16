@@ -14,6 +14,13 @@
   const sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
   const T = "cf_docs";
   // Cotação, nome e proventos de ações e FIIs (função "cotacoes" no Supabase, que consulta o Yahoo Finance).
+  // Arquivos (CRLV dos veículos): bucket privado "cf-arquivos" no Supabase Storage; só o dono lê e grava (regras no banco).
+  const BK = "cf-arquivos";
+  window.cfArquivos = {
+    enviar: async (caminho, arq) => { const { error } = await sb.storage.from(BK).upload(caminho, arq, { contentType: arq.type || undefined, upsert: false }); if (error) throw error; return caminho; },
+    link: async (caminho, nome) => { const { data, error } = await sb.storage.from(BK).createSignedUrl(caminho, 600, nome ? { download: nome } : undefined); if (error) throw error; return data.signedUrl; },
+    apagar: async caminho => { const { error } = await sb.storage.from(BK).remove([caminho]); if (error) throw error; }
+  };
   window.cfCotacoes = async tickers => { const { data, error } = await sb.functions.invoke("cotacoes", { body: { tickers } }); if (error) throw error; return data; };
 
   /* ---------- Banco: tabela cf_docs (col, id, data jsonb) ---------- */

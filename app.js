@@ -604,7 +604,8 @@ document.addEventListener('click',async e=>{
     go('aporte'); setTimeout(()=>{$('#fInd').scrollIntoView({behavior:'smooth',block:'center'});($('#iCot').closest('label').hidden?$('#iSaldo'):$('#iCot')).focus();},50); return;}
   const dl=e.target.closest('[data-del]'); if(dl){
     if(dl.dataset.armed!=='1'){dl.dataset.armed='1';dl.textContent='Confirmar?';setTimeout(()=>{if(dl.isConnected){dl.dataset.armed='';dl.textContent='Excluir';}},3000);return;}
-    try{await store.del(dl.dataset.del,dl.dataset.id);}catch(err){dl.textContent='Erro';}
+    const crA=dl.dataset.del==='licenc'&&((S.licenc||[]).find(x=>x.id===dl.dataset.id)||{}).crlv;
+    try{await store.del(dl.dataset.del,dl.dataset.id); if(crA&&crA.arq&&window.cfArquivos) window.cfArquivos.apagar(crA.arq).catch(()=>{});}catch(err){dl.textContent='Erro';}
     return;}
   const bk=e.target.closest('[data-banco]'); if(bk){posBanco=bk.dataset.banco; render(); return;}
   const c=e.target.closest('[data-c]'); if(c){posCls=c.dataset.c; document.querySelectorAll('#clsSeg button').forEach(b=>b.setAttribute('aria-pressed',b===c)); render(); return;}
@@ -1434,11 +1435,11 @@ function renderVeic(){
     <div class="ckpi"><div class="l">Falta pagar</div><div class="v ${tot-pg>0.004?'down':''}">${R(tot-pg)}</div><div class="s">${prox?'próximo: '+esc(veicNome(prox.placa))+' em '+fmtD(prox.venc):'nada com data à frente'}</div></div>
     <div class="ckpi"><div class="l">Vencidos</div><div class="v ${late.length?'down':''}">${late.length}</div><div class="s">${late.length?R(late.reduce((t,l)=>t+(+l.valor||0),0)):'nenhum atrasado'}</div></div>`;
   $('#tblLic').innerHTML=L.length?`<thead><tr><th>Veículo</th><th>Vencimento</th><th class="n">Valor</th><th></th></tr></thead><tbody>${L.map(l=>{const st=l.pago?'':(l.venc&&l.venc<hoje?' <span class="tag late">vencido</span>':'');
-      return `<tr class="${l.pago?'pago':''}"><td><label style="display:inline-flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" class="ckpago" data-lpago="${esc(l.id)}" ${l.pago?'checked':''} aria-label="Marcar ${esc(veicNome(l.placa))} como pago">${esc(veicNome(l.placa))}</b></label> <span class="sub2">${esc(l.placa)}</span></td><td>${l.venc?fmtD(l.venc):'—'}${st}${l.pago&&l.pagoEm?' <span class="sub2">pago '+fmtD(l.pagoEm)+'</span>':''}</td><td class="n">${R(+l.valor||0)}</td><td style="width:1%"><span class="acts">${l.pago?'<button class="btn ghost small" type="button" data-paybtn>Desfazer</button>':'<button class="btn small" type="button" data-paybtn>Pagar</button>'}<button class="btn ghost small" data-ed="licenc" data-id="${esc(l.id)}">Editar</button><button class="btn danger small" data-del="licenc" data-id="${esc(l.id)}">Excluir</button></span></td></tr>`;}).join('')}</tbody><tfoot><tr><td>Total</td><td></td><td class="n">${R(tot)}</td><td></td></tr></tfoot>`
+      return `<tr class="${l.pago?'pago':''}"><td><label style="display:inline-flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" class="ckpago" data-lpago="${esc(l.id)}" ${l.pago?'checked':''} aria-label="Marcar ${esc(veicNome(l.placa))} como pago">${esc(veicNome(l.placa))}</b></label> <span class="sub2">${esc(l.placa)}</span></td><td>${l.venc?fmtD(l.venc):'—'}${st}${l.pago&&l.pagoEm?' <span class="sub2">pago '+fmtD(l.pagoEm)+'</span>':''}</td><td class="n">${R(+l.valor||0)}</td><td style="width:1%"><span class="acts">${l.pago?'<button class="btn ghost small" type="button" data-paybtn>Desfazer</button>':'<button class="btn small" type="button" data-paybtn>Pagar</button>'}${l.crlv?`<button class="btn ghost small" type="button" data-crlv="${esc(l.id)}" title="Ver ou baixar o CRLV de ${esc(l.ano)}">📄 CRLV</button>`:`<button class="btn ghost small" type="button" data-crlvadd="${esc(l.id)}" title="Anexar o arquivo do CRLV (PDF ou foto)">+ CRLV</button>`}<button class="btn ghost small" data-ed="licenc" data-id="${esc(l.id)}">Editar</button><button class="btn danger small" data-del="licenc" data-id="${esc(l.id)}">Excluir</button></span></td></tr>`;}).join('')}</tbody><tfoot><tr><td>Total</td><td></td><td class="n">${R(tot)}</td><td></td></tr></tfoot>`
     :`<tbody><tr><td class="empty">Nenhum pagamento lançado em ${vcAno}.</td></tr></tbody>`;
   const anos=[...new Set(LS.map(l=>+l.ano))].sort(); const rows=anos.map(a=>({a,v:LS.filter(l=>+l.ano===a).reduce((t,l)=>t+(+l.valor||0),0)})); const mx=Math.max(...rows.map(r=>r.v),1);
   $('#vcBars').innerHTML=rows.length?rows.map(r=>`<div class="bar" style="grid-template-columns:minmax(0,60px) minmax(0,1fr) auto;cursor:pointer" data-vcano="${r.a}" title="Abrir ${r.a}"><span>${r.a}</span><div class="track"><div class="fill" style="width:${(r.v/mx*100).toFixed(1)}%"></div></div><span class="num" style="text-align:right;white-space:nowrap">${R(r.v)}</span></div>`).join(''):'<p class="empty">Nenhum pagamento lançado.</p>';
-  $('#tblVeic').innerHTML=VS.length?`<thead><tr><th>Veículo</th><th>Placa</th><th>RENAVAM</th><th></th></tr></thead><tbody>${VS.map(v=>`<tr><td><b>${esc(v.nome)}</b>${v.obs?' <span class="sub2">'+esc(v.obs)+'</span>':''}</td><td>${esc(v.placa)}</td><td>${esc(v.renavam||'—')}</td><td style="width:1%"><span class="acts"><a class="btn ghost small" href="https://www.detran.go.gov.br/" target="_blank" rel="noopener noreferrer" data-detran="${esc(v.placa)}|${esc(v.renavam||'')}" title="Abre o site do Detran-GO e copia placa e RENAVAM">Consultar no Detran</a><button class="btn ghost small" data-ed="veiculos" data-id="${esc(v.id)}">Editar</button><button class="btn danger small" data-del="veiculos" data-id="${esc(v.id)}">Excluir</button></span></td></tr>`).join('')}</tbody>`
+  $('#tblVeic').innerHTML=VS.length?`<thead><tr><th>Veículo</th><th>Placa</th><th>RENAVAM</th><th></th></tr></thead><tbody>${VS.map(v=>`<tr><td><b>${esc(v.nome)}</b>${v.obs?' <span class="sub2">'+esc(v.obs)+'</span>':''}</td><td>${esc(v.placa)}</td><td>${esc(v.renavam||'—')}</td><td style="width:1%"><span class="acts">${(c=>c?`<button class="btn ghost small" type="button" data-crlv="${esc(c.id)}" title="Ver ou baixar o CRLV mais recente">📄 CRLV ${esc(c.ano)}</button>`:'')(crlvUlt(v.placa))}<a class="btn ghost small" href="https://www.detran.go.gov.br/" target="_blank" rel="noopener noreferrer" data-detran="${esc(v.placa)}|${esc(v.renavam||'')}" title="Abre o site do Detran-GO e copia placa e RENAVAM">Consultar no Detran</a><button class="btn ghost small" data-ed="veiculos" data-id="${esc(v.id)}">Editar</button><button class="btn danger small" data-del="veiculos" data-id="${esc(v.id)}">Excluir</button></span></td></tr>`).join('')}</tbody>`
     :`<tbody><tr><td class="empty">Nenhum veículo cadastrado.</td></tr></tbody>`;
   const sel=$('#lcVeic'), cur=sel.value; sel.innerHTML=VS.map(v=>`<option value="${esc(v.placa)}">${esc(v.nome)} · ${esc(v.placa)}</option>`).join(''); if(cur) sel.value=cur;
   if(!$('#lcAno').value) $('#lcAno').value=vcAno;
@@ -1463,6 +1464,59 @@ $('#fLic').addEventListener('submit',async e=>{e.preventDefault(); const m=$('#m
   const id='lv-'+placa+'-'+ano, ex=(S.licenc||[]).find(l=>l.id===id);
   try{await store.put('licenc',id,{...(ex?(({id,...r})=>r)(ex):{}),placa,ano,venc,valor,pago,pagoEm:pago?((ex&&ex.pagoEm)||today()):null}); flash(m,`${veicNome(placa)} ${ano} salvo.`,true); vcAno=ano; $('#lcValor').value='';$('#lcVenc').value=''; renderVeic();}
   catch(err){flash(m,errTxt(err));}
+});
+
+/* CRLV: arquivo (PDF ou foto) anexado a cada licenciamento do ano, guardado no Supabase Storage (bucket privado). */
+const crlvUlt=placa=>(S.licenc||[]).filter(l=>l.placa===placa&&l.crlv&&l.crlv.arq).sort((a,b)=>(+b.ano)-(+a.ano))[0];
+const crlvTam=n=>n>=1048576?(n/1048576).toFixed(1).replace('.',',')+' MB':Math.max(1,Math.round(n/1024))+' KB';
+let crlvAlvo=null;
+function crlvEscolher(id){ if(!window.cfArquivos){flash($('#mCrlv'),'Anexar arquivo só funciona no site com login.');return;} crlvAlvo=id; const i=$('#crlvIn'); i.value=''; i.click(); }
+$('#crlvIn').addEventListener('change',async e=>{
+  const f=e.target.files&&e.target.files[0], id=crlvAlvo; crlvAlvo=null; if(!f||!id) return; const m=$('#mCrlv');
+  const l=(S.licenc||[]).find(x=>x.id===id); if(!l) return;
+  const pdf=f.type==='application/pdf'||/\.pdf$/i.test(f.name), img=/^image\/(jpeg|png|webp|heic|heif)$/.test(f.type);
+  if(!pdf&&!img){flash(m,'Escolha um PDF ou uma foto (JPG, PNG).');return;}
+  if(f.size>10*1024*1024){flash(m,'O arquivo passa de 10 MB. Escolha um menor.');return;}
+  const tipo=pdf?'application/pdf':f.type, ext=pdf?'pdf':(f.type.split('/')[1]||'jpg').replace('jpeg','jpg');
+  const arq=`crlv/${l.placa}-${l.ano}-${Date.now().toString(36)}.${ext}`;
+  const nome=(f.name||`CRLV ${l.placa} ${l.ano}.${ext}`).slice(0,120);
+  flash(m,`Enviando o CRLV de ${veicNome(l.placa)} ${l.ano}…`,true);
+  try{ await window.cfArquivos.enviar(arq,new File([f],nome,{type:tipo})); }
+  catch(err){ flash(m,'Não foi possível enviar o arquivo. Tente de novo.'); return; }
+  const velho=l.crlv&&l.crlv.arq; const {id:_i,...d}=l;
+  try{ await store.put('licenc',id,{...d,crlv:{arq,nome,tipo,tam:f.size,em:today()}}); }
+  catch(err){ window.cfArquivos.apagar(arq).catch(()=>{}); flash(m,errTxt(err)); return; }
+  if(velho&&velho!==arq) window.cfArquivos.apagar(velho).catch(()=>{});
+  flash(m,`CRLV de ${veicNome(l.placa)} ${l.ano} guardado.`,true);
+  if($('#crDlg').open) crlvAbrir(id);
+});
+async function crlvAbrir(id){
+  const l=(S.licenc||[]).find(x=>x.id===id); if(!l||!l.crlv) return; const c=l.crlv, dl=$('#crDlg');
+  $('#crTit').textContent=`CRLV ${veicNome(l.placa)} ${l.ano}`;
+  $('#crSub').textContent=`${c.nome||'arquivo'}${c.tam?' · '+crlvTam(c.tam):''}${c.em?' · anexado em '+fmtD(c.em):''}`;
+  dl.dataset.id=id; $('#crPrev').innerHTML='<p class="sub">Carregando…</p>'; $('#crAbrir').removeAttribute('href'); $('#crBaixar').removeAttribute('href');
+  if(!dl.open){ if(dl.showModal) dl.showModal(); else dl.setAttribute('open',''); }
+  try{
+    const ext=(c.arq.split('.').pop()||'pdf'), nomeB=`CRLV ${l.placa} ${l.ano}.${ext}`;
+    const [u,ub]=await Promise.all([window.cfArquivos.link(c.arq),window.cfArquivos.link(c.arq,nomeB)]);
+    if(dl.dataset.id!==id) return;
+    $('#crAbrir').href=u; $('#crBaixar').href=ub;
+    $('#crPrev').innerHTML=/^image\//.test(c.tipo||'')?`<img src="${esc(u)}" alt="CRLV ${esc(l.placa)} ${esc(l.ano)}">`:`<p class="sub">Arquivo PDF. Toque em <b>Abrir</b> para ver ou em <b>Baixar</b> para salvar no aparelho.</p>`;
+  }catch(err){ $('#crPrev').innerHTML='<p class="msg err">Não foi possível abrir o arquivo. Tente de novo.</p>'; }
+}
+function crlvFechar(){ const dl=$('#crDlg'); dl.dataset.id=''; $('#crPrev').innerHTML=''; if(dl.close) dl.close(); else dl.removeAttribute('open'); $('#crRem').dataset.armed=''; $('#crRem').textContent='Remover arquivo'; }
+document.addEventListener('click',e=>{
+  const a=e.target.closest('[data-crlvadd]'); if(a){crlvEscolher(a.dataset.crlvadd);return;}
+  const v=e.target.closest('[data-crlv]'); if(v){ if(!window.cfArquivos){flash($('#mCrlv'),'Ver o arquivo só funciona no site com login.');return;} crlvAbrir(v.dataset.crlv); }
+});
+$('#crFechar').addEventListener('click',crlvFechar);
+$('#crDlg').addEventListener('click',e=>{if(e.target===$('#crDlg')) crlvFechar();});
+$('#crTrocar').addEventListener('click',()=>crlvEscolher($('#crDlg').dataset.id));
+$('#crRem').addEventListener('click',async()=>{ const b=$('#crRem'), id=$('#crDlg').dataset.id;
+  if(b.dataset.armed!=='1'){b.dataset.armed='1';b.textContent='Confirmar remoção?';setTimeout(()=>{if(b.dataset.armed==='1'){b.dataset.armed='';b.textContent='Remover arquivo';}},3000);return;}
+  const l=(S.licenc||[]).find(x=>x.id===id); if(!l||!l.crlv) return crlvFechar(); const {id:_i,crlv,...d}=l;
+  try{ await store.put('licenc',id,d); window.cfArquivos.apagar(crlv.arq).catch(()=>{}); crlvFechar(); flash($('#mCrlv'),`CRLV de ${veicNome(l.placa)} ${l.ano} removido.`,true); }
+  catch(err){ b.dataset.armed=''; b.textContent='Remover arquivo'; flash($('#mCrlv'),errTxt(err)); }
 });
 
 /* Consultar no Detran-GO: abre o site oficial e copia placa e RENAVAM para colar (o Detran pede captcha, então não dá para consultar sozinho). */
