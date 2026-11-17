@@ -261,12 +261,12 @@ document.addEventListener("click", async e => {
     if (d.encdel && lancs.some(l => l.clienteId === id)) { msg(alvo, "Esse cliente tem lançamentos. Exclua os lançamentos antes."); renderTudo(); return; }
     try { await db.collection(d.endel ? C_LAN : C_CLI).doc(id).delete(); msg(alvo, "Excluído.", true); } catch (_) { msg(alvo, "Não foi possível excluir."); } }
   else if (d.enpdf) { const l = lancs.find(x => x.id === d.enpdf), cl = clientes.find(x => x.id === l.clienteId) || {};
-    salvarPDF(() => montarPDF(l), arq("Cobranca " + mesLbl(l.mes).replace("/", "-") + " " + (cl.nome || "cliente")), b, "#enMsgL"); }
+    salvarPDF(() => montarPDF(l), arq("Fatura " + mesLbl(l.mes).replace("/", "-") + " " + (cl.nome || "cliente")), b, "#enMsgL"); }
   else if (d.enanual) { const ano = $("enAno").value, cl = clientes.find(x => x.id === d.enanual) || {};
     salvarPDF(() => montarAnual(d.enanual, ano), arq("Relatorio anual " + ano + " " + (cl.nome || "cliente")), b, null); }
   else if (d.encopy) { const l = lancs.find(x => x.id === d.encopy), c = calc(l), cl = clientes.find(x => x.id === l.clienteId) || {};
-    const txt = `Cobrança de energia solar – ${mesLbl(l.mes)}\n${cl.nome || ""}${cl.uc ? " (UC " + cl.uc + ")" : ""}\n\n${nf(l.kwh, 0)} kWh × R$ ${nf(l.tarifa, 6)} = ${brl(c.bruto)}\nDesconto de ${nf(l.descontoPct, 0)}%: − ${brl(c.desconto)}\nIluminação pública: + ${brl(l.cip)}\n\nTotal a pagar: ${brl(c.cobrar)}${l.vencimento ? "\nVencimento: " + dataLbl(l.vencimento) : ""}${cfg.pix ? "\nPIX: " + cfg.pix : ""}\n\nSua economia no mês: ${brl(c.economia)}${c.bandEcon ? ` (desconto ${brl(c.desconto)} + bandeira ${bandNome(l.bandeira).toLowerCase()} ${brl(c.bandEcon)})` : ""}`;
-    try { await navigator.clipboard.writeText(txt); msg("#enMsgL", "Texto da cobrança copiado. Cole no WhatsApp.", true); } catch (_) { prompt("Copie o texto:", txt); } }
+    const txt = `Fatura de energia solar – ${mesLbl(l.mes)}\n${cl.nome || ""}${cl.uc ? " (UC " + cl.uc + ")" : ""}\n\n${nf(l.kwh, 0)} kWh × R$ ${nf(l.tarifa, 6)} = ${brl(c.bruto)}\nDesconto de ${nf(l.descontoPct, 0)}%: − ${brl(c.desconto)}\nIluminação pública: + ${brl(l.cip)}\n\nTotal a pagar: ${brl(c.cobrar)}${l.vencimento ? "\nVencimento: " + dataLbl(l.vencimento) : ""}${cfg.pix ? "\nPIX: " + cfg.pix : ""}\n\nSua economia no mês: ${brl(c.economia)}${c.bandEcon ? ` (desconto ${brl(c.desconto)} + bandeira ${bandNome(l.bandeira).toLowerCase()} ${brl(c.bandEcon)})` : ""}`;
+    try { await navigator.clipboard.writeText(txt); msg("#enMsgL", "Texto da fatura copiado. Cole no WhatsApp.", true); } catch (_) { prompt("Copie o texto:", txt); } }
 });
 
 /* ---------- PDFs ---------- */
@@ -293,7 +293,7 @@ function blocoCliente(doc, cl) {
 function montarPDF(l) {
   const { jsPDF } = window.jspdf; const doc = new jsPDF({ unit: "mm", format: "a4" });
   const c = calc(l), cl = clientes.find(x => x.id === l.clienteId) || {}, W = 210, M = 18;
-  cabecalho(doc, "Cobrança de energia solar", "Créditos de energia compensados em " + mesExt(l.mes));
+  cabecalho(doc, "Fatura de energia solar", "Créditos de energia compensados em " + mesExt(l.mes));
   let y = blocoCliente(doc, cl);
   y += 14; doc.setTextColor(...CINZA); doc.setFontSize(8.5); doc.setFont("helvetica", "bold"); doc.text("COMO O VALOR FOI CALCULADO", M, y);
   y += 4;
