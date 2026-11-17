@@ -1725,6 +1725,20 @@ function go(t){ if(t==='fiado'){t='chacara'; chSeg('fiado');} if(!TABS.includes(
   go.ready=true;
 }
 /* Celular: barra com as seções principais + "Mais" abre todas em quadros grandes */
+/* Setas na barra de abas (computador): aparecem quando há abas escondidas para a esquerda ou para a direita */
+(function(){
+  const nav=document.querySelector('nav.tabs'), w=nav&&nav.querySelector('.wrap'); if(!w) return;
+  const chev=d=>`<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
+  const mk=(lado,d,txt)=>{const b=document.createElement('button'); b.type='button'; b.className='navarr '+lado; b.setAttribute('aria-label',txt); b.title=txt; b.innerHTML=chev(d); b.hidden=true; nav.appendChild(b); return b;};
+  const L=mk('l','M15 6l-6 6 6 6','Ver abas anteriores'), Rt=mk('r','M9 6l6 6-6 6','Ver mais abas');
+  const upd=()=>{ const max=w.scrollWidth-w.clientWidth; L.hidden=!(w.scrollLeft>4); Rt.hidden=!(w.scrollLeft<max-4); };
+  L.addEventListener('click',()=>w.scrollBy({left:-w.clientWidth*0.7,behavior:'smooth'}));
+  Rt.addEventListener('click',()=>w.scrollBy({left:w.clientWidth*0.7,behavior:'smooth'}));
+  w.addEventListener('scroll',upd,{passive:true}); window.addEventListener('resize',upd);
+  nav.addEventListener('click',e=>{ const b=e.target.closest('[data-tab]'); if(b&&w.contains(b)) setTimeout(()=>{ b.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'}); },0); });
+  setTimeout(()=>{ const s=w.querySelector('[aria-selected="true"]'); if(s&&w.scrollWidth>w.clientWidth) w.scrollLeft=Math.max(0,s.offsetLeft-w.clientWidth/2); upd(); },50);
+  upd();
+})();
 $('#secGrid').innerHTML=[...document.querySelectorAll('nav.tabs [data-tab]')].map(b=>`<button type="button" data-tab="${b.dataset.tab}" aria-selected="false">${b.querySelector('.ic').innerHTML}<span>${b.querySelector('.tl').textContent}</span></button>`).join('');
 function secClose(){ const s=$('#secSheet'); if(s.hidden) return; s.hidden=true; $('#navMore').setAttribute('aria-expanded','false'); if(secClose.back){secClose.back=false; $('#navMore').focus();} }
 $('#navMore').addEventListener('click',()=>{ const s=$('#secSheet'); s.hidden=false; $('#navMore').setAttribute('aria-expanded','true'); (s.querySelector('[aria-selected="true"]')||s.querySelector('#secGrid button')).focus(); });
