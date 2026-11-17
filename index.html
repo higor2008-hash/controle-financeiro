@@ -5,7 +5,12 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
-<meta name="theme-color" content="#141a2e">
+<meta name="theme-color" content="#16233b">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <title>Financeiro</title>
 <meta name="apple-mobile-web-app-title" content="Financeiro">
 <meta name="application-name" content="Financeiro">
@@ -15,9 +20,9 @@
 <style>
 /* Layout: cabeçalho com patrimônio, abas fixas, painéis de uma coluna que viram grade no desktop */
 :root{
-  --bg:#141a2e; --surface:#1b2238; --surface-2:#232b45; --line:#323b5a;
+  --bg:#121c30; --surface:#1a2740; --surface-2:#22304c; --line:#33425f;
   --ink:#eef1fb; --ink-2:#b3bad3; --ink-3:#8089a8;
-  --accent:#7c5cff; --accent-ink:#ffffff; --accent-soft:rgba(124,92,255,.22);
+  --accent:#c9a24a; --accent-ink:#16233b; --accent-soft:rgba(201,162,74,.20);
   --gold:#f7b538; --gold-soft:rgba(247,181,56,.14); --blue:#5aa9ff;
   --up:#4fd08a; --down:#ff5c74; --warn:#f7b538;
   --glow:0 0 0 1px rgba(255,255,255,.02),0 10px 30px rgba(0,0,0,.25);
@@ -67,7 +72,7 @@ dialog#edDlg h2{font-size:18px;font-weight:700}
 .limbar{height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden;width:120px}
 .limbar i{display:block;height:100%;background:var(--accent)}
 .limbar i.hi{background:var(--down)}
-body{background-color:var(--bg);background-image:radial-gradient(rgba(255,255,255,.07) 1px,transparent 1.4px),radial-gradient(1200px 600px at 10% -10%,rgba(124,92,255,.16),transparent 60%),radial-gradient(900px 500px at 110% 10%,rgba(79,208,138,.08),transparent 60%);background-size:22px 22px,auto,auto;background-attachment:fixed;color:var(--ink);font-family:var(--f-body);font-size:14.5px;line-height:1.55}
+body{background-color:var(--bg);background-image:radial-gradient(rgba(255,255,255,.07) 1px,transparent 1.4px),radial-gradient(1200px 600px at 10% -10%,rgba(201,162,74,.16),transparent 60%),radial-gradient(900px 500px at 110% 10%,rgba(79,208,138,.08),transparent 60%);background-size:22px 22px,auto,auto;background-attachment:fixed;color:var(--ink);font-family:var(--f-body);font-size:14.5px;line-height:1.55}
 body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
 .wrap{max-width:1120px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
 h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.15}
@@ -77,14 +82,17 @@ button,input,select{font:inherit;color:inherit}
 
 header.top{padding-block:24px 8px}
 .brand{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.brand h1{font-size:clamp(28px,4.4vw,40px);font-weight:600;letter-spacing:-.02em;background:linear-gradient(90deg,#fff,#c9bfff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.brand h1{font-size:clamp(28px,4.4vw,40px);font-weight:600;letter-spacing:-.02em;background:linear-gradient(90deg,#fff,#e9d6a6);-webkit-background-clip:text;background-clip:text;color:transparent}
 .brand small{color:var(--ink-3);font-size:13px}
+.brand .logo{display:flex;align-items:center;gap:14px}
+.brand .selo{flex:none;width:52px;height:52px;border:2px solid var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:Georgia,"Times New Roman",serif;font-weight:700;font-size:24px;color:#fff;letter-spacing:.01em}
+@media (max-width:640px){.brand .selo{width:42px;height:42px;font-size:19px}}
 .sync{font-size:12px;color:var(--ink-3);display:flex;align-items:center;gap:6px}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--ink-3)}
 .dot.ok{background:var(--up)}
 
 .kpis[hidden]{display:none}
-.lock{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;background:radial-gradient(800px 500px at 50% 0%,rgba(124,92,255,.25),transparent 70%),var(--bg)}
+.lock{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;background:radial-gradient(800px 500px at 50% 0%,rgba(201,162,74,.25),transparent 70%),var(--bg)}
 .lock[hidden]{display:none}
 body.locked>*:not(.lock){visibility:hidden}
 .lockbox{width:100%;max-width:340px;display:flex;flex-direction:column;align-items:stretch;gap:12px;text-align:center;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:28px 22px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
@@ -105,7 +113,7 @@ body.priv .v,body.priv .num,body.priv td.n,body.priv .kpi .s,body.priv .ckpi .s,
 .dias{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
 .dias button{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:6px 2px;color:var(--ink-3);font:inherit;font-size:11px;cursor:pointer;line-height:1.25;min-width:0}
 .dias button b{display:block;font-family:var(--f-mono);font-size:14px;color:var(--ink);font-weight:600}
-.dias button.tem{border-color:rgba(124,92,255,.5);background:rgba(124,92,255,.12)}
+.dias button.tem{border-color:rgba(201,162,74,.5);background:rgba(201,162,74,.12)}
 .dias button[aria-pressed="true"]{outline:2px solid var(--accent)}
 #tblChG td:first-child{white-space:normal;width:100%}
 #tblChG td{padding-left:6px!important;padding-right:6px!important} #tblChG .btn.small{padding-left:9px;padding-right:9px}
@@ -143,7 +151,7 @@ body.priv .v,body.priv .num,body.priv td.n,body.priv .kpi .s,body.priv .ckpi .s,
 nav.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:rgba(20,26,46,.86);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);margin-top:18px}
 nav.tabs .wrap{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
 nav.tabs button{background:none;border:0;padding:12px 12px 10px;border-bottom:2px solid transparent;color:var(--ink-2);font-weight:600;white-space:nowrap;cursor:pointer}
-nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent);text-shadow:0 0 12px rgba(124,92,255,.6)}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent);text-shadow:0 0 12px rgba(201,162,74,.6)}
 
 main{padding-block:20px 48px}
 .panel{display:flex;flex-direction:column;gap:20px}
@@ -193,7 +201,7 @@ tfoot td{font-weight:600;border-top:2px solid var(--line)}
 .bars{display:flex;flex-direction:column;gap:8px}
 .bar{display:grid;grid-template-columns:72px minmax(0,1fr) 64px;gap:10px;align-items:center;font-size:13px}
 .bar .track{height:10px;background:var(--surface-2);border-radius:999px;position:relative;overflow:hidden}
-.bar .fill{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#6a4cf0,#9c84ff);border-radius:999px}
+.bar .fill{position:absolute;inset:0 auto 0 0;background:linear-gradient(90deg,#b48c35,#e2c27a);border-radius:999px}
 .bar .meta{position:absolute;top:-2px;bottom:-2px;width:2px;background:#fff}
 
 .chart svg{width:100%;height:auto;display:block}
@@ -209,7 +217,7 @@ input,select{background:#121829;border:1px solid var(--line);border-radius:9px;p
 input[type=date]::-webkit-calendar-picker-indicator,input[type=month]::-webkit-calendar-picker-indicator{filter:invert(.8)}
 input:focus{border-color:var(--accent)}
 a.btn{text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
-.btn{background:linear-gradient(135deg,#8b6dff,#6a4cf0);color:var(--accent-ink);border:0;border-radius:9px;padding:9px 16px;font-weight:500;cursor:pointer;white-space:nowrap;box-shadow:0 4px 14px rgba(124,92,255,.35)}
+.btn{background:linear-gradient(135deg,#d8b45e,#b48c35);color:var(--accent-ink);border:0;border-radius:9px;padding:9px 16px;font-weight:500;cursor:pointer;white-space:nowrap;box-shadow:0 4px 14px rgba(201,162,74,.35)}
 .btn.ghost{background:transparent;color:var(--ink-2);border:1px solid var(--line);box-shadow:none}
 .btn.small{padding:4px 10px;font-size:12.5px}
 .btn.danger{background:transparent;color:var(--down);border:1px solid color-mix(in srgb,var(--down) 45%,transparent);box-shadow:none}
@@ -417,8 +425,8 @@ nav.tabs .navarr{position:absolute;top:0;bottom:1px;width:56px;display:flex;alig
 nav.tabs .navarr[hidden]{display:none}
 nav.tabs .navarr.l{left:max(0px,calc(50% - 560px));justify-content:flex-start;background:linear-gradient(90deg,rgba(20,26,46,1) 45%,rgba(20,26,46,0))}
 nav.tabs .navarr.r{right:max(0px,calc(50% - 560px));justify-content:flex-end;background:linear-gradient(270deg,rgba(20,26,46,1) 45%,rgba(20,26,46,0))}
-nav.tabs .navarr svg{background:var(--accent-soft);border:1px solid rgba(124,92,255,.5);border-radius:50%;padding:3px;width:28px;height:28px;box-shadow:0 0 12px rgba(124,92,255,.35)}
-nav.tabs .navarr:hover svg{background:var(--accent);color:#fff}
+nav.tabs .navarr svg{background:var(--accent-soft);border:1px solid rgba(201,162,74,.5);border-radius:50%;padding:3px;width:28px;height:28px;box-shadow:0 0 12px rgba(201,162,74,.35)}
+nav.tabs .navarr:hover svg{background:var(--accent);color:var(--accent-ink)}
 @media (max-width:640px){nav.tabs .navarr{display:none!important}}
 </style>
 <style>
@@ -446,9 +454,12 @@ html,body{margin:0;background:var(--bg)}
 <header class="top">
   <div class="wrap">
     <div class="brand">
-      <div>
-        <h1>Controle Financeiro</h1>
-        <small>Investimentos, proventos, cartões e contas a pagar</small>
+      <div class="logo">
+        <span class="selo" aria-hidden="true">HR</span>
+        <div>
+          <h1>Controle Financeiro</h1>
+          <small>Investimentos, proventos, cartões e contas a pagar</small>
+        </div>
       </div>
       <div class="hdr-r"><button class="btn ghost small" id="pinBtn" type="button" title="Senha de acesso ao site">Criar senha</button><button class="btn ghost small" id="lockNow" type="button" hidden>Bloquear</button><button class="btn ghost small" id="privBtn" type="button" aria-pressed="false" title="Esconder os valores da tela">Ocultar valores</button><div class="sync"><span class="dot" id="syncDot"></span><span id="syncTxt">Conectando…</span></div></div>
     </div>

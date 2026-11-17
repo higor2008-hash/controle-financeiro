@@ -270,10 +270,13 @@ document.addEventListener("click", async e => {
 });
 
 /* ---------- PDFs ---------- */
-const AZUL = [13, 92, 120], SOL = [227, 155, 20], TINTA = [20, 35, 44], CINZA = [91, 109, 120], LINHA = [216, 225, 231], VERDE = [29, 122, 70];
+const AZUL = [22, 35, 59], SOL = [201, 162, 74], TINTA = [20, 35, 44], CINZA = [91, 109, 120], LINHA = [216, 225, 231], VERDE = [29, 122, 70];
 function cabecalho(doc, titulo, sub) {
   const W = 210, M = 18;
-  doc.setFillColor(...AZUL); doc.rect(0, 0, W, 38, "F"); doc.setFillColor(...SOL); doc.circle(M + 5, 19, 5, "F");
+  doc.setFillColor(...AZUL); doc.rect(0, 0, W, 38, "F");
+  doc.setDrawColor(...SOL); doc.setLineWidth(0.8); doc.roundedRect(M - 1, 9, 13, 13, 1.6, 1.6, "S");
+  doc.setTextColor(255, 255, 255); doc.setFont("times", "bold"); doc.setFontSize(15); doc.text("HR", M + 5.5, 18.1, { align: "center" });
+  doc.setFillColor(...SOL); doc.rect(0, 38, W, 1.2, "F");
   doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(18); doc.text(titulo, M + 15, 17);
   doc.setFont("helvetica", "normal"); doc.setFontSize(11); doc.text(sub, M + 15, 25);
   const t = new Date(); doc.setFontSize(9); doc.text("Emitido em " + String(t.getDate()).padStart(2, "0") + "/" + String(t.getMonth() + 1).padStart(2, "0") + "/" + t.getFullYear(), W - M, 33, { align: "right" });
@@ -305,7 +308,7 @@ function montarPDF(l) {
   doc.setFontSize(10.5);
   rows.forEach((r, i) => { y += 10; doc.setFont("helvetica", i === 4 ? "bold" : "normal"); doc.setTextColor(...(i === 3 ? VERDE : TINTA));
     doc.text(r[0], M + 2, y); doc.text(r[1], W - M - 2, y, { align: "right" }); doc.setDrawColor(...LINHA); doc.setLineWidth(0.3); doc.line(M, y + 4, W - M, y + 4); });
-  y += 12; doc.setFillColor(253, 241, 216); doc.setDrawColor(...SOL); doc.setLineWidth(0.6); doc.roundedRect(M, y, W - 2 * M, 26, 3, 3, "FD");
+  y += 12; doc.setFillColor(244, 236, 216); doc.setDrawColor(...SOL); doc.setLineWidth(0.6); doc.roundedRect(M, y, W - 2 * M, 26, 3, 3, "FD");
   doc.setTextColor(...TINTA); doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.text("VALOR A PAGAR", M + 6, y + 11);
   doc.setFontSize(22); doc.text(brl(c.cobrar), W - M - 6, y + 16, { align: "right" });
   doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(...CINZA);
