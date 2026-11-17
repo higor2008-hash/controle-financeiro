@@ -324,7 +324,7 @@ function render(){
   const pa=Object.entries(porAtivo).sort((a,b)=>b[1].a12-a[1].a12);
   $('#tblDivAtivo').innerHTML=`<thead><tr><th>Ativo</th><th class="n">12 meses</th><th class="n">Total</th><th class="n">Yield on cost</th></tr></thead><tbody>${pa.length?pa.map(([t,x])=>`<tr><td><span class="tk">${esc(nomeOf(V,t))}</span> ${clsPill(clsOf(V,t))}</td><td class="n gold">${R(x.a12)}</td><td class="n">${R(x.tot)}</td><td class="n">${custoTk[t]?PCT(x.a12/custoTk[t]):'—'}</td></tr>`).join(''):'<tr><td colspan="4" class="empty">Nenhum provento lançado.</td></tr>'}</tbody>`;
 
-  renderCmp(V,P,d12);
+  renderCmp(V,P,d12); renderAtv(V,P);
   $('#ativosList').innerHTML=S.ativos.map(a=>`<option value="${esc(a.ticker)}">${esc((a.nome||a.ticker)+' · '+(MODS[a.classe]||MODS.outro).l)}</option>`).join('');
   renderHist(V,demo);
   renderCartoes(); renderContas(); renderVenc(parcelas()); renderOv(P.total); renderVendas(); renderVeic(); renderUa();
@@ -346,7 +346,7 @@ function renderHist(V,demo){
     $('#tblHist').innerHTML=`<thead><tr><th>Data</th><th>Tipo</th><th>Ativo</th><th class="n">Qtd</th><th class="n">Preço</th><th class="n">Total</th><th></th></tr></thead><tbody>${rows.length?rows.map(o=>`<tr><td class="num">${fmtD(o.data)}</td><td>${isCot(clsOf(V,o.ticker))?(o.tipo==='venda'?'<span class="pill bad">Venda</span>':'<span class="pill good">Compra</span>'):(o.tipo==='venda'?'<span class="pill bad">Resgate</span>':'<span class="pill good">Aplicação</span>')}</td><td><span class="tk">${esc(nomeOf(V,o.ticker))}</span> ${clsPill(clsOf(V,o.ticker))}</td><td class="n">${isCot(clsOf(V,o.ticker))?NQ.format(o.qtd):'—'}</td><td class="n">${isCot(clsOf(V,o.ticker))?R(+o.preco):'—'}</td><td class="n">${R(o.qtd*o.preco+(+o.taxa||0)*(o.tipo==='venda'?-1:1))}</td><td>${del('compras',o.id)}</td></tr>`).join(''):'<tr><td colspan="7" class="empty">Nada lançado.</td></tr>'}</tbody>`;
   } else {
     const rows=[...V.divs].sort((a,b)=>(b.data||'').localeCompare(a.data||''));
-    $('#tblHist').innerHTML=`<thead><tr><th>Data</th><th>Tipo</th><th>Ativo</th><th class="n">Valor</th><th class="n">Por ação</th><th></th></tr></thead><tbody>${rows.length?rows.map(d=>`<tr><td class="num">${fmtD(d.data)}</td><td>${esc(d.tipo||'Dividendo')}</td><td class="tk">${esc(nomeOf(V,d.ticker))}</td><td class="n gold">${R(+d.valor)}</td><td class="n">${(()=>{const pa=porAcao(V,d);return pa?R4(pa):'—';})()}</td><td>${del('dividendos',d.id)}</td></tr>`).join(''):'<tr><td colspan="6" class="empty">Nada lançado.</td></tr>'}</tbody>`;
+    $('#tblHist').innerHTML=`<thead><tr><th>Data</th><th>Tipo</th><th>Ativo</th><th>Banco</th><th class="n">Valor</th><th class="n">Por ação</th><th></th></tr></thead><tbody>${rows.length?rows.map(d=>`<tr><td class="num">${fmtD(d.data)}</td><td>${esc(d.tipo||'Dividendo')}</td><td class="tk">${esc(nomeOf(V,d.ticker))}</td><td>${esc((b=>BANCO_NOME[b]||b)(atvNorm(atvBancoDe(V,d.ticker,d.corretora))))}</td><td class="n gold">${R(+d.valor)}</td><td class="n">${(()=>{const pa=porAcao(V,d);return pa?R4(pa):'—';})()}</td><td>${del('dividendos',d.id)}</td></tr>`).join(''):'<tr><td colspan="7" class="empty">Nada lançado.</td></tr>'}</tbody>`;
   }
 }
 function renderCmp(V,P,d12){
@@ -388,6 +388,95 @@ function renderCmp(V,P,d12){
 }
 $('#cmpSel').addEventListener('change',()=>render());
 $('#tblCmp').addEventListener('click',e=>{const tr=e.target.closest('[data-cmp]'); if(!tr) return; $('#cmpSel').value=tr.dataset.cmp; render(); $('#cmpCard').scrollIntoView({behavior:'smooth',block:'start'});});
+
+/* ---------- Ações e FIIs (cadastro fácil + cotação da internet) ---------- */
+let atvBusca=null;
+const ATV_BANCOS=['Nubank','XP','Inter'];
+const BANCO_NOME={Nubank:'Nubank',XP:'XP Investimentos',Inter:'Banco Inter'};
+let atvBanco=(()=>{try{const v=localStorage.getItem('cf-atv-banco');return v==='todos'||ATV_BANCOS.includes(v)?v:'Nubank';}catch(e){return 'Nubank';}})();
+function atvBancoDe(V,t,corr){ if(corr) return corr; const a=V.ativos.find(x=>x.ticker===t); return (a&&a.corretora)||'Nubank'; }
+function atvNorm(b){ const k=String(b||'').trim().toLowerCase(); return k.startsWith('nu')?'Nubank':k.startsWith('xp')?'XP':k.startsWith('inter')||k.includes('inter')?'Inter':String(b||'').trim()||'Nubank'; }
+function atvView(V,b){ if(b==='todos') return V; const f=x=>atvNorm(atvBancoDe(V,x.ticker,x.corretora))===b; return {...V,ops:V.ops.filter(f),divs:V.divs.filter(f)}; }
+$('#atvBancoSeg').addEventListener('click',e=>{const x=e.target.closest('[data-atvb]'); if(!x) return; atvBanco=x.dataset.atvb; try{localStorage.setItem('cf-atv-banco',atvBanco);}catch(err){} render();});
+function atvWeb(a){return a&&a.web||null;}
+async function buscarCot(tks){ if(!window.cfCotacoes) throw new Error('sem_internet'); const r=await window.cfCotacoes(tks); return (r&&r.itens)||[]; }
+function atvBase(t){const a=S.ativos.find(x=>x.ticker===t); if(!a) return {ticker:t}; const {id,...rest}=a; return rest;}
+function atvSalvarWeb(t,w){
+  const b=atvBase(t); const cls=(b.classe&&MODS[b.classe])?b.classe:inferCls(t);
+  const d={...b,ticker:t,classe:cls,cotacao:w.cotacao!=null?+w.cotacao:b.cotacao,web:{nome:w.nome||null,cot:w.cotacao??null,ult:w.ultimoProvento?w.ultimoProvento.valor:null,ultData:w.ultimoProvento?w.ultimoProvento.data:null,p12:w.proventos12m??null,n12:w.nProventos12m??null,em:new Date().toISOString().slice(0,16)}};
+  if((b.dpa==null||b.dpa==='')&&w.proventos12m) d.dpa=+w.proventos12m;
+  return store.put('ativos',t,d);
+}
+function atvInfoHtml(w){
+  if(!w.ok) return `<div class="found">Não achei <b>${esc(w.ticker)}</b> na bolsa. Confira o código. Se estiver certo, você pode adicionar mesmo assim e digitar o valor.</div>`;
+  return `<div class="found"><b>${esc(w.ticker)}</b> · ${esc(w.nome||'')}<br>Cotação hoje: <b>${R(w.cotacao)}</b>${w.ultimoProvento?` · Último dividendo: <b>${R4(w.ultimoProvento.valor)}</b> por cota (${fmtD(w.ultimoProvento.data)})`:''}${w.proventos12m?` · Em 12 meses: <b>${R4(w.proventos12m)}</b> por cota`:''}</div>`;
+}
+$('#aBuscar').addEventListener('click',async()=>{
+  const t=up($('#aTk').value); const m=$('#mAtv'); $('#aTk').value=t;
+  if(!/^[A-Z0-9]{4,7}$/.test(t)){flash(m,'Digite o código, por exemplo MXRF11 ou PETR4.');return;}
+  $('#aInfo').innerHTML='<div class="found">Buscando…</div>';
+  try{ const [w]=await buscarCot([t]); atvBusca=w; $('#aInfo').innerHTML=atvInfoHtml(w); if(w.ok&&w.cotacao&&!$('#aPreco').value) $('#aPreco').value=w.cotacao; if(!$('#aData').value) $('#aData').value=today(); $('#aQtd').focus(); }
+  catch(e){ atvBusca=null; $('#aInfo').innerHTML='<div class="found">Não consegui buscar na internet agora. Você pode digitar os valores e adicionar assim mesmo.</div>'; }
+});
+$('#aTk').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('#aBuscar').click();}});
+$('#aTk').addEventListener('input',()=>{atvBusca=null;$('#aInfo').innerHTML='';});
+$('#fAtv').addEventListener('submit',async e=>{
+  e.preventDefault(); const m=$('#mAtv'); const t=up($('#aTk').value); const q=+$('#aQtd').value, p=+$('#aPreco').value;
+  if(!/^[A-Z0-9]{4,7}$/.test(t)){flash(m,'Digite o código, por exemplo MXRF11.');return;}
+  if(!(q>0)||!(p>0)){flash(m,'Informe quantas cotas e o valor pago por cota.');return;}
+  try{
+    if(atvBusca&&atvBusca.ok&&atvBusca.ticker===t) await atvSalvarWeb(t,atvBusca);
+    else if(!S.ativos.find(x=>x.ticker===t)) await store.put('ativos',t,{ticker:t,classe:inferCls(t),corretora:atvBanco==='todos'?'Nubank':atvBanco});
+    const bk=atvBanco==='todos'?atvNorm(atvBancoDe(S,t)):atvBanco;
+    await store.add('compras',{ticker:t,tipo:'compra',qtd:q,preco:p,taxa:0,data:$('#aData').value||today(),corretora:bk});
+    flash(m,`${NQ.format(q)} ${t} adicionados no ${bk} por ${R(q*p)}.`,true);
+    ['aTk','aQtd','aPreco'].forEach(id=>$('#'+id).value=''); $('#aInfo').innerHTML=''; atvBusca=null;
+  }catch(err){flash(m,errTxt(err));}
+});
+$('#atvAtualizar').addEventListener('click',async()=>{
+  const V=view(); if(V!==S) return; const m=$('#mAtvUp'); const b=$('#atvAtualizar');
+  const tks=posicoes(atvView(V,'todos')).list.filter(x=>['acao','fii','fiagro','etf','bdr'].includes(x.classe)).map(x=>x.ticker);
+  if(!tks.length){flash(m,'Nenhuma ação ou FII na carteira ainda.');return;}
+  b.disabled=true; b.textContent='Atualizando…';
+  try{
+    const its=await buscarCot(tks); let ok=0; const falha=[];
+    for(const w of its){ if(w.ok){ await atvSalvarWeb(w.ticker,w); ok++; } else falha.push(w.ticker); }
+    flash(m,`${ok} cotações atualizadas.`+(falha.length?` Não achei: ${falha.join(', ')}.`:''),!falha.length||ok>0);
+  }catch(e){flash(m,'Não consegui buscar as cotações agora. Tente de novo daqui a pouco.');}
+  b.disabled=false; b.textContent='Atualizar cotações';
+});
+document.addEventListener('click',e=>{
+  const c=e.target.closest('[data-atvmais]'); if(!c) return;
+  const t=c.dataset.atvmais; $('#aTk').value=t; atvBusca=null; const a=S.ativos.find(x=>x.ticker===t); const w=atvWeb(a);
+  $('#aInfo').innerHTML=''; $('#aPreco').value=(a&&a.cotacao)||''; $('#aData').value=today(); $('#fAtv').scrollIntoView({behavior:'smooth',block:'center'}); setTimeout(()=>$('#aQtd').focus(),300);
+});
+function renderAtv(V,P0){
+  if(!$('#atvList')) return;
+  const ok=['acao','fii','fiagro','etf','bdr'];
+  const tot=b=>posicoes(atvView(V,b)).list.filter(x=>ok.includes(x.classe)).reduce((s,x)=>s+x.valor,0);
+  $('#atvBancoSeg').innerHTML=[...ATV_BANCOS,'todos'].map(b=>`<button type="button" data-atvb="${b}" aria-pressed="${b===atvBanco}">${b==='todos'?'Todos':b}<span class="sub2">${R(tot(b))}</span></button>`).join('');
+  $('#atvAddTit').textContent=atvBanco==='todos'?'Adicionar ação ou fundo imobiliário':`Adicionar no ${atvBanco}`;
+  $('#atvListTit').textContent=atvBanco==='todos'?'Minhas ações e FIIs (todos os bancos)':`Minhas ações e FIIs no ${atvBanco}`;
+  const P=posicoes(atvView(V,atvBanco));
+  const L=P.list.filter(x=>ok.includes(x.classe)).sort((a,b)=>(a.classe==='fii'||a.classe==='fiagro'?0:1)-(b.classe==='fii'||b.classe==='fiagro'?0:1)||b.valor-a.valor);
+  const K=L.filter(x=>x.pm&&x.cot), inv=K.reduce((s,x)=>s+x.custo,0), hojeK=K.reduce((s,x)=>s+x.valor,0), hoje=L.reduce((s,x)=>s+x.valor,0), prov=L.reduce((s,x)=>s+(x.prov||0),0), semPm=L.filter(x=>!x.pm).length;
+  let mes=0; L.forEach(x=>{const w=atvWeb(x.a); if(w&&w.ult&&(x.classe==='fii'||x.classe==='fiagro')) mes+=w.ult*x.qtd; else if(w&&w.p12) mes+=w.p12*x.qtd/12;});
+  const ult=L.map(x=>atvWeb(x.a)&&atvWeb(x.a).em).filter(Boolean).sort().pop();
+  $('#atvSub').textContent=ult?`Cotações atualizadas em ${fmtD(ult.slice(0,10))} às ${ult.slice(11,16)}`:'Toque em Atualizar cotações para buscar os valores de hoje';
+  $('#atvKpis').innerHTML=`<div class="ckpi"><div class="l">Vale hoje</div><div class="v">${R(hoje)}</div><div class="s">${L.length} ativos</div></div><div class="ckpi"><div class="l">Ganho ou perda</div><div class="v ${cls(hojeK-inv)}">${inv?(hojeK>=inv?'+':'')+R(hojeK-inv):'—'}</div><div class="s">${inv?`${hojeK>=inv?'+':''}${PCT(hojeK/inv-1)} sobre ${R(inv)} pagos`:''}${semPm?` · ${semPm} sem preço pago`:''}</div></div><div class="ckpi"><div class="l">Dividendos recebidos</div><div class="v gold">${R(prov)}</div><div class="s">lançados até hoje</div></div><div class="ckpi"><div class="l">Renda por mês</div><div class="v">${mes?R(mes):'—'}</div><div class="s">estimativa</div></div>`;
+  $('#atvList').innerHTML=L.length?L.map(x=>{
+    const w=atvWeb(x.a); const fii=x.classe==='fii'||x.classe==='fiagro';
+    const mesV=w&&w.ult?(fii?w.ult*x.qtd:(w.p12||0)*x.qtd/12):null;
+    return `<article class="atv"><div class="hd"><span class="tk">${esc(x.ticker)}</span> ${clsPill(x.classe)}${x.res!=null?` <span class="pill ${x.res>=0?'good':'bad'}">${x.res>=0?'+':''}${PCT(x.resPct)}</span>`:''}</div>
+      <div class="nm">${esc((w&&w.nome)||(x.nome!==x.ticker?x.nome:'')||'Toque em Atualizar cotações para buscar o nome')}</div>
+      <dl><div><dt>Cotas</dt><dd>${NQ.format(x.qtd)}</dd></div><div><dt>Preço médio</dt><dd>${x.pm?R(x.pm):'—'}</dd></div>
+      <div><dt>Cotação hoje</dt><dd>${x.cot?R(x.cot):'—'}</dd></div><div><dt>Vale hoje</dt><dd>${R(x.valor)}</dd></div>
+      <div><dt>Paga por cota</dt><dd class="gold">${w&&w.ult?R4(w.ult):'—'}</dd></div><div><dt>${fii?'Por mês, para você':'Por mês (média)'}</dt><dd class="gold">${mesV?R(mesV):'—'}</dd></div>
+      <div><dt>Dividendos recebidos</dt><dd>${x.prov?R(x.prov):'—'}</dd></div><div><dt>Rende ao ano</dt><dd>${w&&w.p12&&x.cot?PCT(w.p12/x.cot):'—'}</dd></div></dl>
+      ${w&&w.ultData?`<div class="web">Último dividendo pago em ${fmtD(w.ultData)}${w.p12?` · ${R4(w.p12)} por cota em 12 meses`:''}</div>`:''}
+      <div class="ft">${x.pm?'':`<button class="btn ghost small" data-edit="${esc(x.ticker)}">Informar preço pago</button>`}<button class="btn ghost small" data-atvmais="${esc(x.ticker)}">+ Comprar mais</button><button class="btn ghost small" data-goto="lancar">Lançar dividendo</button></div></article>`;
+  }).join(''):`<p class="empty">${atvBanco==='todos'?'Nenhuma ação ou FII ainda.':'Nada lançado no '+atvBanco+' ainda.'} Adicione o primeiro acima.</p>`;
+}
 function divHint(){
   const h=$('#dHint'); if(!h) return; const raw=$('#dTk').value.trim(), v=+$('#dValor').value;
   const V=view(); const a=V.ativos.find(x=>x.ticker===up(raw)||x.ticker===slug(raw)||(x.nome&&x.nome===raw)); const t=a?a.ticker:up(raw);
@@ -397,6 +486,7 @@ function divHint(){
   h.textContent=v>0?`≈ ${R4(v/q)} por ação/cota (${R(v)} ÷ ${NQ.format(q)} ${du===dt?'que você tinha em '+fmtD(dt):'do seu primeiro lançamento, em '+fmtD(du)}).`:`Você tinha ${NQ.format(q)} em ${fmtD(du)}. Digite o valor total para ver quanto dá por ação.`;
 }
 ['dTk','dData','dValor'].forEach(id=>{$('#'+id).addEventListener('input',divHint);$('#'+id).addEventListener('change',divHint);});
+$('#dTk').addEventListener('change',()=>{ const raw=$('#dTk').value.trim(); const a=S.ativos.find(x=>x.ticker===up(raw)||x.ticker===slug(raw)||(x.nome&&x.nome===raw)); if(a&&a.corretora){ const b=atvNorm(a.corretora); if(ATV_BANCOS.includes(b)) $('#dBanco').value=b; } });
 function R4(v){return 'R$ '+(+v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:4});}
 function fmtD(s){return s?s.slice(8,10)+'/'+s.slice(5,7)+'/'+s.slice(0,4):'—';}
 
@@ -477,7 +567,7 @@ $('#fDiv').addEventListener('submit',async e=>{
   const t=exist?exist.ticker:up(raw);
   if(!/^[A-Z0-9.\-]{2,40}$/.test(t)){flash(m,'Escolha um ativo da lista ou digite o ticker.');return;}
   if(!(v>0)){flash(m,'Informe o valor recebido.');return;}
-  try{ await store.add('dividendos',{ticker:t,tipo:$('#dTipo').value,data:$('#dData').value||today(),valor:v}); const q=isCot(clsOf(S,t))?qtdPag(S,t,$('#dData').value||today())[0]:0; flash(m,`${R(v)} de ${exist&&exist.nome||t} lançado.`+(q?` Deu ${R4(v/q)} por ação/cota.`:''),true); $('#dValor').value=''; divHint(); }
+  try{ await store.add('dividendos',{ticker:t,tipo:$('#dTipo').value,data:$('#dData').value||today(),valor:v,corretora:$('#dBanco').value}); const q=isCot(clsOf(S,t))?qtdPag(S,t,$('#dData').value||today())[0]:0; flash(m,`${R(v)} de ${exist&&exist.nome||t} lançado.`+(q?` Deu ${R4(v/q)} por ação/cota.`:''),true); $('#dValor').value=''; divHint(); }
   catch(err){flash(m,errTxt(err));}
 });
 function syncIndForm(){showOnly($('#fInd'),$('#iCls').value||inferCls(up($('#iTk').value)));}
@@ -578,7 +668,7 @@ function renderCartoes(){
   gc.innerHTML=S.cartoes.length?S.cartoes.map(c=>`<option value="${esc(c.id)}">${esc(c.nome)}</option>`).join(''):'<option value="">Cadastre um cartão primeiro</option>';
   if(S.cartoes.some(c=>c.id===cur)) gc.value=cur;
   $('#cardList').innerHTML=S.cartoes.length?S.cartoes.map(c=>{const u=P.filter(x=>x.c.id===c.id&&x.ym>=today().slice(0,7)).reduce((s,x)=>s+x.v,0); const pc=c.limite?u/c.limite:0;
-    return `<div class="cchip"><div><b>${esc(c.nome)}</b><div class="sub2">fecha dia ${esc(c.fech)} · vence dia ${esc(c.venc)}${c.limite?' · limite '+R(+c.limite):''}</div>${c.limite?`<div class="limbar" title="${PCT(pc)} do limite"><i class="${pc>0.8?'hi':''}" style="width:${Math.min(100,pc*100).toFixed(0)}%"></i></div>`:''}</div><button class="btn ghost small" data-ed="cartoes" data-id="${esc(c.id)}">Editar</button><button class="btn danger small" data-del="cartoes" data-id="${esc(c.id)}" ${S.gastos.some(g=>g.cartao===c.id)?'disabled title="Exclua os gastos deste cartão antes"':''}>Excluir</button></div>`;}).join(''):'<p class="empty">Nenhum cartão cadastrado.</p>';
+    return `<div class="cchip"><div><b>${esc(c.nome)}</b><div class="sub2">fecha dia ${esc(c.fech)} · vence dia ${esc(c.venc)}${c.limite?' · limite '+R(+c.limite):''}</div>${c.limite?`<div class="limbar" title="${PCT(pc)} do limite"><i class="${pc>0.8?'hi':''}" style="width:${Math.min(100,pc*100).toFixed(0)}%"></i></div>`:''}</div><button class="btn small" type="button" data-novogasto="${esc(c.id)}">+ Gasto</button><button class="btn ghost small" data-ed="cartoes" data-id="${esc(c.id)}">Editar</button><button class="btn danger small" data-del="cartoes" data-id="${esc(c.id)}" ${S.gastos.some(g=>g.cartao===c.id)?'disabled title="Exclua os gastos deste cartão antes"':''}>Excluir</button></div>`;}).join(''):'<p class="empty">Nenhum cartão cadastrado.</p>';
   const soltos=cartoesSoltos();
   $('#cardSug').innerHTML=soltos.length?`<p class="sub" style="margin-top:14px">Cartões que aparecem em Contas a pagar mas ainda não estão cadastrados aqui:</p><div class="seg" style="flex-wrap:wrap">${soltos.map(s=>`<button type="button" data-novocartao="${esc(s.id)}" title="Cadastrar ${esc(s.nome)}">+ ${esc(s.nome)}</button>`).join('')}</div>`:'';
   fillCtCartao();
@@ -590,6 +680,13 @@ function cartoesSoltos(){
     if((c.mes||'')>=x.mes){ x.mes=c.mes||''; const d=String(c.descricao||'').match(/^fatura\s+(?:do\s+|de\s+)?(.+)$/i); if(d) x.nome=d[1].trim(); if(+c.dia) x.dia=+c.dia; } });
   return Object.values(m).map(x=>({...x,nome:x.nome||x.id.split('-').map(w=>w.length<=2?w:w[0]+w.slice(1).toLowerCase()).join(' ')})).sort((a,b)=>a.nome.localeCompare(b.nome,'pt'));
 }
+function novoGasto(id){
+  go('cartoes'); if(!S.cartoes.length){ novoCartao(null); return; }
+  const cid=id||(cartSel!=='todos'?cartSel:''); if(cid&&S.cartoes.some(c=>c.id===cid)) $('#gCartao').value=cid;
+  if(!$('#gData').value) $('#gData').value=today(); $('#mGasto').textContent='';
+  setTimeout(()=>{ $('#novoGastoTit').scrollIntoView({behavior:'smooth',block:'start'}); $('#gDesc').focus({preventScroll:true}); },60);
+}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-novogasto]'); if(b){e.preventDefault(); novoGasto(b.dataset.novogasto||null);}});
 let cNovoId=null;
 function novoCartao(id){
   go('cartoes'); cNovoId=null; ['cNome','cFech','cVenc','cLim'].forEach(i=>$('#'+i).value=''); $('#mCartao').textContent='';
@@ -658,7 +755,9 @@ function vencendo(P){
   return out.sort((a,b)=>a.d<b.d?-1:1);
 }
 function renderVenc(P){
-  const tab=go.cur||'resumo', L=vencendo(P).filter(x=>tab==='veiculos'?x.c.tab==='veiculos':x.c.tab!=='veiculos'), el=$('#vencBanner');  // licenciamento só aparece na aba Veículos
+  const tab=go.cur||'resumo', el=$('#vencBanner');  // aviso de vencidas só em Contas a pagar (licenciamento só na aba Veículos)
+  if(tab!=='contas'&&tab!=='veiculos'){el.hidden=true;return;}
+  const L=vencendo(P).filter(x=>tab==='veiculos'?x.c.tab==='veiculos':x.c.tab!=='veiculos');
   if(!L.length){el.hidden=true;return;}
   const hoje=today(), dias=d=>{const n=Math.round((new Date(d)-new Date(hoje))/864e5);return n===1?'amanhã':'em '+n+' dias';};
   const late=L.filter(x=>x.st==='late').length;
@@ -681,6 +780,13 @@ function ovBars(meses,series,cls,fmtTop){
     g+=`<text x="${L+i*bw+bw/2}" y="${H-8}" text-anchor="middle" class="lbl">${MESES[+m.slice(5)-1]}</text>`;});
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Gráfico por mês">${g}</svg>`;
 }
+/* Chácara no financeiro total: o que entrou (vendas pagas + leite recebido) e as despesas do mês */
+function chRec(ym){
+  const rec=(S.vendas||[]).filter(v=>v.pago&&(v.data||'').slice(0,7)===ym).reduce((s,v)=>s+vTot(v),0);
+  const recL=+(((S.leitemes||[]).find(x=>x.id==='lm-'+ym)||{}).recebido)||0;
+  return Math.round((rec+recL)*100)/100;
+}
+function chDesp(ym){ return Math.round((S.chgastos||[]).filter(x=>x.mes===ym).reduce((t,x)=>t+(+x.valor||0),0)*100)/100; }
 function chLucro(ym){
   const rec=(S.vendas||[]).filter(v=>v.pago&&(v.data||'').slice(0,7)===ym).reduce((s,v)=>s+vTot(v),0);
   const recL=+(((S.leitemes||[]).find(x=>x.id==='lm-'+ym)||{}).recebido)||0;
@@ -690,7 +796,8 @@ function chLucro(ym){
 function renderOv(patrimonio){
   const ym=today().slice(0,7), P=parcelas(), soma=a=>a.reduce((s,x)=>s+(+x.valor||0),0);
   $('#ovMes').textContent=MESES_L[+ym.slice(5)-1].toLowerCase();
-  const L=contasDoMes(ym,P), tot=soma(L), pago=soma(L.filter(c=>c.pago)), rt=soma(S.receitas.filter(r=>r.mes===ym));
+  const cR=chRec(ym), cD=chDesp(ym);
+  const L=contasDoMes(ym,P), tot=soma(L)+cD, pago=soma(L.filter(c=>c.pago))+cD, rt=soma(S.receitas.filter(r=>r.mes===ym))+cR;
   const fat=P.filter(x=>x.ym===ym), ft=fat.reduce((s,x)=>s+x.v,0), nCart=new Set(fat.map(x=>x.c.id)).size;
   const fatPaga=[...new Set(fat.map(x=>x.c.id))].every(id=>((S.faturas||[]).find(f=>f.id==='fp-'+id+'-'+ym)||{}).pago);
   const lucro=chLucro(ym);
@@ -698,17 +805,17 @@ function renderOv(patrimonio){
   const late=vencendo(P).filter(x=>x.c.tab!=='veiculos'&&x.st==='late').length;
   const k=(tab,l,v,s,c='')=>`<div class="ckpi" data-goto="${tab}" role="button" tabindex="0"><div class="l">${l}</div><div class="v ${c}">${v}</div><div class="s">${s}</div></div>`;
   $('#ovKpis').innerHTML=
-    k('contas','Contas do mês',R(tot),tot-pago>0.004?'faltam '+R(tot-pago)+(late?' · '+late+' vencida'+(late===1?'':'s'):''):'tudo pago',late?'down':'')+
-    k('contas','Receitas do mês',rt?R(rt):'—',rt?'sobra '+R(rt-tot):'lance em Contas',rt?cls(rt-tot):'')+
+    k('contas','Contas do mês',R(tot),(tot-pago>0.004?'faltam '+R(tot-pago)+(late?' · '+late+' vencida'+(late===1?'':'s'):''):'tudo pago')+(cD?' · chácara '+R(cD):''),late?'down':'')+
+    k('contas','Receitas do mês',rt?R(rt):'—',rt?'sobra '+R(rt-tot)+(cR?' · chácara '+R(cR):''):'lance em Contas',rt?cls(rt-tot):'')+
     k('cartoes','Fatura do cartão',R(ft),ft?(fatPaga?'paga':nCart+' cartã'+(nCart===1?'o':'os')+' · em aberto'):'nada neste mês')+
     k('carteira','Investimentos',R(patrimonio),'patrimônio hoje','gold')+
     (()=>{const VD=chVendido(ym), u=VD.n?null:chUltMes(ym); return k('chacara','Chácara no mês',R(VD.tot),VD.tot?'vendido · lucro '+R(lucro):(u?'nada ainda · '+MESES_L[+u.slice(5)-1].toLowerCase()+' '+R(chVendido(u).tot):'nada vendido'),VD.tot?'up':'');})()+
     k('luzagua','Luz e água',uaPg+' de '+uas.length,'pagas neste mês')+
     (()=>{const e=window.CFEnergia&&window.CFEnergia.tile(); return e?k('energia','Energia solar',e.v,e.s,e.c):'';})();
   const meses=[-4,-3,-2,-1,0,1].map(d=>ymAdd(ym,d));
-  $('#ovChart').innerHTML=ovBars(meses,[meses.map(m=>soma(S.receitas.filter(r=>r.mes===m))),meses.map(m=>soma(contasDoMes(m,P)))],['rc','dc'])
+  $('#ovChart').innerHTML=ovBars(meses,[meses.map(m=>soma(S.receitas.filter(r=>r.mes===m))+chRec(m)),meses.map(m=>soma(contasDoMes(m,P))+chDesp(m))],['rc','dc'])
     +'<div class="ovleg"><span><i style="background:#4fd08a"></i>Receitas</span><span><i style="background:#ff5c74"></i>Contas</span></div>';
-  const porCat={}; L.forEach(c=>{const k=c.categoria||'Outros'; porCat[k]=(porCat[k]||0)+(+c.valor||0);});
+  const porCat={}; L.forEach(c=>{const k=c.categoria||'Outros'; porCat[k]=(porCat[k]||0)+(+c.valor||0);}); if(cD) porCat['Chácara']=(porCat['Chácara']||0)+cD;
   const cats=Object.entries(porCat).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]);
   $('#ovCat').innerHTML=cats.length?donut(cats.map(([l,v])=>({l,v})),kfmtOv(tot),'no mês'):'<p class="empty">Nenhuma conta neste mês.</p>';
   const porG={}; fat.forEach(x=>{const k=x.g.categoria||'Outros'; porG[k]=(porG[k]||0)+x.v;});
@@ -721,8 +828,22 @@ const kfmtOv=v=>v>=1e6?'R$ '+N2.format(v/1e6)+' mi':v>=1e3?'R$ '+(v/1e3).toFixed
 function contasDoMes(ym,P){
   const L=S.contas.filter(c=>c.mes===ym).map(c=>({...c,auto:false}));
   const porCard={}; P.filter(x=>x.ym===ym).forEach(x=>{porCard[x.c.id]=(porCard[x.c.id]||0)+x.v;});
+  const ymHoje=today().slice(0,7);
   for(const [cid,v] of Object.entries(porCard)){
-    if(L.some(c=>c.cartao===cid)) continue;
+    const man=L.filter(c=>c.cartao===cid);
+    if(man.length){
+      // Já existe a fatura lançada à mão em Contas a pagar: soma nela as parcelas lançadas na aba Cartões que ainda não estão nos itens.
+      // Meses passados já pagos ficam como estão (a fatura paga já tinha esses gastos).
+      const alvo=man.find(c=>!c.pago)||(ym>=ymHoje?man[0]:null); if(!alvo) continue;
+      const its=(alvo.itens||[]).map(i=>({...i})), usado=new Set(), novos=[];
+      P.filter(x=>x.ym===ym&&x.c.id===cid).forEach(x=>{
+        const k=x.n>1?x.i+'/'+x.n:'', re=new RegExp('(^|\\D)'+x.i+'/'+x.n+'(\\D|$)');
+        const ix=its.findIndex((i,q)=>!usado.has(q)&&Math.abs((+i.v||0)-x.v)<=0.02&&(!k||!/\d+\/\d+/.test(i.d||'')||re.test(i.d||'')));
+        if(ix>=0) usado.add(ix); else novos.push({d:(x.g.descricao||'Gasto no cartão')+(k?' '+k:''),v:x.v,novo:1});
+      });
+      if(novos.length){ const add=Math.round(novos.reduce((s,i)=>s+i.v,0)*100)/100; alvo.valor=Math.round(((+alvo.valor||0)+add)*100)/100; alvo.itens=[...its,...novos]; alvo.doCartao=add; }
+      continue;
+    }
     const c=S.cartoes.find(k=>k.id===cid);
     L.push({id:'auto-'+cid,mes:ym,descricao:'Fatura '+(c?c.nome:cid),categoria:'Cartão',valor:Math.round(v*100)/100,auto:true,cartao:cid,venc:c?venceEm(c,ym):null,pago:!!((S.faturas||[]).find(f=>f.id==='fp-'+cid+'-'+ym)||{}).pago});
   }
@@ -735,17 +856,18 @@ function renderContas(){
   $('#ctMes').textContent=ymNome(ctYM);
   const tot=L.reduce((s,c)=>s+(+c.valor||0),0), pago=L.filter(c=>c.pago).reduce((s,c)=>s+(+c.valor||0),0);
   const rec=S.receitas.filter(r=>r.mes===ctYM).sort((a,b)=>(b.valor||0)-(a.valor||0)); const rt=rec.reduce((s,r)=>s+(+r.valor||0),0);
-  const saldo=rt-tot;
+  const cR=chRec(ctYM), cD=chDesp(ctYM), temRec=rec.length||cR>0;
+  const saldo=rt+cR-tot-cD;
   $('#ctKpis').innerHTML=`
     <div class="ckpi"><div class="l">A pagar em ${MESES_L[+ctYM.slice(5)-1]}</div><div class="v">${R(tot)}</div><div class="s">${L.length} conta${L.length===1?'':'s'} · ${tot-pago>0.004?'faltam '+R(tot-pago):'tudo pago'}</div></div>
-    <div class="ckpi"><div class="l">Receitas do mês</div><div class="v">${R(rt)}</div><div class="s">${rec.length?rec.length+' entrada'+(rec.length===1?'':'s'):'Lance suas receitas abaixo'}</div></div>
-    <div class="ckpi"><div class="l">Sobra do mês</div><div class="v ${rec.length?cls(saldo):''}">${rec.length?R(saldo):'—'}</div><div class="s">${rec.length?(saldo>=0?'receitas menos contas':'as contas passam das receitas'):'precisa das receitas do mês'}</div></div>`;
-  const itens=c=>c.itens&&c.itens.length?`<details class="itens"><summary>${c.itens.length} ite${c.itens.length===1?'m':'ns'}</summary><ul>${c.itens.map(i=>`<li><span>${esc(i.d)}</span><span class="num">${R(i.v)}</span></li>`).join('')}</ul></details>`:'';
+    <div class="ckpi"><div class="l">Receitas do mês</div><div class="v">${R(rt+cR)}</div><div class="s">${rec.length?rec.length+' entrada'+(rec.length===1?'':'s'):(cR?'':'Lance suas receitas abaixo')}${cR?(rec.length?' · ':'')+'chácara '+R(cR):''}</div></div>
+    <div class="ckpi"><div class="l">Sobra do mês</div><div class="v ${temRec?cls(saldo):''}">${temRec?R(saldo):'—'}</div><div class="s">${temRec?(saldo>=0?'receitas menos contas':'as contas passam das receitas')+(cR||cD?' · com chácara ('+R(cR-cD)+')':''):'precisa das receitas do mês'}</div></div>`;
+  const itens=c=>c.itens&&c.itens.length?`<details class="itens"><summary>${c.itens.length} ite${c.itens.length===1?'m':'ns'}</summary><ul>${c.itens.map(i=>`<li><span>${esc(i.d)}${i.novo?' <span class="sub2">(aba Cartões)</span>':''}</span><span class="num">${R(i.v)}</span></li>`).join('')}</ul></details>`:'';
   $('#tblContas').innerHTML=`<thead><tr><th>Pago</th><th>Conta</th><th>Situação</th><th class="n">Valor</th><th></th></tr></thead><tbody>${L.length?L.map(c=>`<tr class="${c.pago?'pago':''}">
     <td>${c.auto?`<input type="checkbox" class="ckpago" data-fpago="${esc(c.cartao)}|${esc(c.mes)}" ${c.pago?'checked':''} aria-label="Marcar ${esc(c.descricao)} como paga" title="Fatura vem da aba Cartões">`:`<input type="checkbox" class="ckpago" data-pago="${esc(c.id)}" ${c.pago?'checked':''} aria-label="Marcar ${esc(c.descricao)} como paga">`}</td>
-    <td style="white-space:normal;min-width:11em"><span class="cdesc">${esc(c.descricao)}</span>${c.parcela?` <span class="sub2">${esc(c.parcela)}</span>`:''}${!c.auto&&vencData(c)?` <span class="sub2">· vence ${fmtD(vencData(c))}</span>`:''}${c.auto?` <span class="sub2">· da aba Cartões${c.venc?', vence '+esc(c.venc):''}</span>`:''}${itens(c)}</td>
+    <td style="white-space:normal;min-width:11em"><span class="cdesc">${esc(c.descricao)}</span>${c.parcela?` <span class="sub2">${esc(c.parcela)}</span>`:''}${!c.auto&&vencData(c)?` <span class="sub2">· vence ${fmtD(vencData(c))}</span>`:''}${c.auto?` <span class="sub2">· da aba Cartões${c.venc?', vence '+esc(c.venc):''}</span>`:''}${c.doCartao?` <span class="sub2">· inclui ${R(c.doCartao)} lançados na aba Cartões</span>`:''}${itens(c)}</td>
     <td>${c.pago?'<span class="st ok">Paga</span>':c.mes<today().slice(0,7)?'<span class="st late">Atrasada</span>':'<span class="st wait">A pagar</span>'} <span class="sub2">${esc(c.categoria||'Outros')}</span></td><td class="n">${R(+c.valor)}</td>
-    <td>${c.auto?`<span class="acts">${c.pago?'<button class="btn ghost small" type="button" data-paybtn>Desfazer</button>':'<button class="btn small" type="button" data-paybtn>Pagar</button>'}<button class="btn ghost small" data-goto="cartoes">Ver</button></span>`:`<span class="acts">${c.pago?'<button class="btn ghost small" type="button" data-paybtn>Desfazer</button>':'<button class="btn small" type="button" data-paybtn>Pagar</button>'}<button class="btn ghost small" data-ed="contas" data-id="${esc(c.id)}">Editar</button><button class="btn danger small" data-del="contas" data-id="${esc(c.id)}">Excluir</button></span>`}</td></tr>`).join(''):`<tr><td colspan="5" class="empty">Nenhuma conta em ${ymNome(ctYM)}.</td></tr>`}</tbody>${L.length?`<tfoot><tr><td colspan="3">Total do mês</td><td class="n">${R(tot)}</td><td></td></tr></tfoot>`:''}`;
+    <td>${c.auto?`<span class="acts">${c.pago?'<button class="btn ghost small" type="button" data-paybtn>Desfazer</button>':'<button class="btn small" type="button" data-paybtn>Pagar</button>'}<button class="btn ghost small" data-goto="cartoes">Ver</button></span>`:`<span class="acts">${c.pago?'<button class="btn ghost small" type="button" data-paybtn>Desfazer</button>':'<button class="btn small" type="button" data-paybtn>Pagar</button>'}${/^av-/.test(c.id)?'<button class="btn ghost small" type="button" data-avver>Editar</button>':`<button class="btn ghost small" data-ed="contas" data-id="${esc(c.id)}">Editar</button>`}<button class="btn danger small" data-del="contas" data-id="${esc(c.id)}">Excluir</button></span>`}</td></tr>`).join(''):`<tr><td colspan="5" class="empty">Nenhuma conta em ${ymNome(ctYM)}.</td></tr>`}</tbody>${L.length?`<tfoot><tr><td colspan="3">Total do mês</td><td class="n">${R(tot)}</td><td></td></tr></tfoot>`:''}`;
   const meses=[...Array(12)].map((_,i)=>ymAdd(today().slice(0,7),i));
   const rows=meses.map(ym=>({ym,v:contasDoMes(ym,P).reduce((s,c)=>s+(+c.valor||0),0)}));
   const mx=Math.max(...rows.map(r=>r.v),1);
@@ -763,6 +885,7 @@ document.addEventListener('change',async e=>{const k=e.target.closest('[data-fpa
 });
 document.addEventListener('change',async e=>{const k=e.target.closest('[data-pago]'); if(!k) return;
   const c=S.contas.find(x=>x.id===k.dataset.pago); if(!c) return; const {id,...d}=c;
+  if(k.checked){ const mg=contasDoMes(c.mes,parcelas()).find(x=>x.id===id); if(mg&&mg.doCartao){ d.valor=mg.valor; d.itens=mg.itens.map(({novo,...i})=>i); } }
   try{await store.put('contas',id,{...d,pago:k.checked});}catch(err){k.checked=!k.checked; alert(errTxt(err));}
 });
 $('#ctCartao').addEventListener('change',e=>{
@@ -785,6 +908,7 @@ $('#fConta').addEventListener('submit',async e=>{
   }catch(err){flash(m,errTxt(err));}
 });
 /* ---------- Gastos à vista: itens dentro da conta av-YYYY-MM ---------- */
+document.addEventListener('click',e=>{ if(e.target.closest('[data-avver]')){ const c=$('#avCard'); c.scrollIntoView({behavior:'smooth',block:'start'}); flash($('#mAv'),'Toque em Editar no gasto que quer mudar.',true); } });
 const avDoc=ym=>S.contas.find(c=>c.id==='av-'+ym);
 async function avSalva(ym,itens){
   const id='av-'+ym, cur=avDoc(ym);
@@ -798,7 +922,7 @@ function renderAv(){
   $('#avMes').textContent=MESES_L[+ctYM.slice(5)-1].toLowerCase();
   $('#avTot').textContent=L.length?R(c.valor):'';
   const ord=L.map((x,i)=>({x,i})).sort((a,b)=>(b.x.dt||'').localeCompare(a.x.dt||''));
-  $('#tblAv').innerHTML=L.length?`<thead><tr><th>Dia</th><th>O que foi</th><th>Pago com</th><th class="n">Valor</th><th></th></tr></thead><tbody>${ord.map(({x,i})=>`<tr><td class="num">${x.dt?fmtD(x.dt):'—'}</td><td style="white-space:normal">${esc(x.d)}</td><td>${esc(x.f||'—')}</td><td class="n">${R(+x.v)}</td><td><button class="btn danger small" type="button" data-avdel="${i}">Excluir</button></td></tr>`).join('')}</tbody>`
+  $('#tblAv').innerHTML=L.length?`<thead><tr><th>Dia</th><th>O que foi</th><th>Pago com</th><th class="n">Valor</th><th></th></tr></thead><tbody>${ord.map(({x,i})=>`<tr><td class="num">${x.dt?fmtD(x.dt):'—'}</td><td style="white-space:normal">${esc(x.d)}</td><td>${esc(x.f||'—')}</td><td class="n">${R(+x.v)}</td><td><span class="acts"><button class="btn ghost small" type="button" data-ed="avitem" data-id="${esc(ctYM+'|'+i)}">Editar</button><button class="btn danger small" type="button" data-avdel="${i}">Excluir</button></span></td></tr>`).join('')}</tbody>`
     :'<tbody><tr><td class="empty">Nenhum gasto à vista neste mês.</td></tr></tbody>';
   const dt=$('#avData'); if(!dt.value||dt.value.slice(0,7)!==ctYM) dt.value=today().slice(0,7)===ctYM?today():ctYM+'-01';
 }
@@ -857,6 +981,8 @@ function edSchema(col,d){
       {k:'pago',l:'Pagamento',t:'select',opts:[['1','Recebido'],['0','A receber']]}]};
     case 'clientes': return {tit:'Editar cliente',f:[{k:'nome',l:'Nome',t:'text',wide:1},{k:'telefone',l:'Telefone',t:'text',opt:1},{k:'endereco',l:'Endereço ou referência',t:'text',wide:1,opt:1},
       {k:'produto',l:'Compra',t:'select',opts:[['','Leite e queijo'],['Queijo','Queijo'],['Leite','Leite']]}]};
+    case 'avitem': return {tit:'Editar gasto à vista',sub:'Fica dentro da conta "Gastos à vista" do mês.',f:[{k:'d',l:'O que foi',t:'text',wide:1},num('v','Valor (R$)',{step:'0.01',min:0}),
+      {k:'dt',l:'Dia',t:'date',opt:1},{k:'f',l:'Pago com',t:'select',opts:['Dinheiro','Pix','Débito',...(d.f&&!['Dinheiro','Pix','Débito'].includes(d.f)?[d.f]:[])].map(c=>[c,c])}]};
     case 'chgastos': return {tit:'Editar despesa da chácara',f:[{k:'mes',l:'Mês',t:'month'},{k:'descricao',l:'Descrição',t:'text',wide:1},num('valor','Valor (R$)',{step:'0.01'})]};
     case 'veiculos': return {tit:'Editar veículo',sub:'Placa '+d.placa,f:[{k:'nome',l:'Veículo',t:'text',wide:1},{k:'renavam',l:'RENAVAM',t:'text',opt:1},{k:'obs',l:'Observação',t:'text',wide:1,opt:1}]};
     case 'chitens': return {tit:d.tipo==='despesa'?'Editar item de despesa':'Editar produto',f:[{k:'nome',l:'Nome',t:'text',wide:1},...(d.tipo==='despesa'?[]:[{k:'un',l:'Unidade',t:'select',opts:[['kg','kg'],['L','litro'],['un','unidade']]}]),num('preco',d.tipo==='despesa'?'Valor de costume (R$)':'Preço por unidade (R$)',{step:'0.01',min:0,opt:1})]};
@@ -867,7 +993,7 @@ function edSchema(col,d){
     case 'cartoes': return {tit:'Editar cartão',f:[{k:'nome',l:'Nome do cartão',t:'text',wide:1},num('fech','Dia do fechamento',{step:'1',min:1,max:31}),
       num('venc','Dia do vencimento',{step:'1',min:1,max:31}),num('limite','Limite (R$)',{step:'0.01',opt:1})]};
     case 'dividendos': return {tit:'Editar provento',f:[{k:'ticker',l:'Ativo',t:'text',list:'ativosList'},{k:'tipo',l:'Tipo',t:'select',opts:TIPOS_DIV.map(c=>[c,c])},
-      {k:'data',l:'Data',t:'date'},num('valor','Valor recebido (R$)',{step:'0.01'})]};
+      {k:'corretora',l:'Banco ou corretora',t:'select',opts:ATV_BANCOS.map(b=>[b,BANCO_NOME[b]]),def:atvNorm(atvBancoDe(S,d.ticker,d.corretora))},{k:'data',l:'Data',t:'date'},num('valor','Valor recebido (R$)',{step:'0.01'})]};
     case 'compras': { const cot=isCot(clsOf(S,d.ticker));
       return cot?{tit:'Editar compra ou venda',f:[{k:'tipo',l:'Tipo',t:'select',opts:[['compra','Compra'],['venda','Venda']]},{k:'ticker',l:'Ativo',t:'text',list:'ativosList'},
         {k:'data',l:'Data',t:'date'},num('qtd','Quantidade',{step:'any'}),num('preco','Preço por unidade (R$)',{step:'any',opt:1}),num('taxa','Taxas (R$)',{step:'0.01',opt:1})]}
@@ -875,16 +1001,43 @@ function edSchema(col,d){
         {k:'_valor',l:'Valor (R$)',t:'number',step:'0.01'}]}; }
   }
 }
+/* Contas que se repetem: as mesmas parcelas (ex.: 3/12) ou a mesma conta nos meses seguintes, ainda a pagar */
+const parcN=p=>{const m=/^\s*(\d+)\s*\/\s*(\d+)\s*$/.exec(p||''); return m?{i:+m[1],n:+m[2]}:null;};
+const normD=t=>(t||'').trim().toLowerCase();
+function contasSeguintes(d){
+  if(!d||!d.mes||d.cartao||/^av-/.test(d.id||'')) return [];
+  const pd=parcN(d.parcela);
+  return S.contas.filter(c=>c.id!==d.id&&!c.pago&&c.mes>d.mes&&!c.cartao&&normD(c.descricao)===normD(d.descricao)&&(()=>{
+    const pc=parcN(c.parcela); if(pd) return !!pc&&pc.n===pd.n&&pc.i>pd.i; return !pc; })()).sort((a,b)=>a.mes.localeCompare(b.mes));
+}
+/* Gasto à vista: id = "YYYY-MM|posição" dentro de contas/av-YYYY-MM */
+function avItem(id){ const [ym,i]=String(id).split('|'); const it=((avDoc(ym)||{}).itens||[])[+i]; return it?{...it,id,_ym:ym,_i:+i}:null; }
+async function avEdita(d,data,m){
+  const v=Math.round(+data.v*100)/100;
+  if(!data.d){flash(m,'Diga o que foi o gasto.');return false;}
+  if(!(v>0)){flash(m,'Informe o valor.');return false;}
+  const dt=/^\d{4}-\d{2}-\d{2}$/.test(data.dt||'')?data.dt:null;
+  const cur=avDoc(d._ym); const L=[...((cur&&cur.itens)||[])]; const old=L[d._i];
+  if(!old||old.d!==d.d||+old.v!==+d.v){flash(m,'Esse gasto mudou enquanto você editava. Feche e abra de novo.');return false;}
+  const {id:_a,_ym,_i,...resto}=d; const it={...resto,d:data.d.slice(0,120),v,dt,f:data.f};
+  const ym=dt?dt.slice(0,7):d._ym;
+  if(ym===d._ym){ L[d._i]=it; await avSalva(ym,L); }
+  else{ const L2=[...((avDoc(ym)||{}).itens||[]),it]; if(L2.length>300){flash(m,'Limite de 300 gastos à vista por mês.');return false;}
+    await avSalva(ym,L2); await avSalva(d._ym,L.filter((_,k)=>k!==d._i)); }
+  return true;
+}
 let edCur=null;
 function openEd(col,id){
-  const d=S[colKey(col)].find(x=>x.id===id); if(!d) return;
+  const d=col==='avitem'?avItem(id):S[colKey(col)].find(x=>x.id===id); if(!d) return;
   const sc=edSchema(col,d); edCur={col,id,d,sc};
   $('#edTit').textContent=sc.tit; $('#edSub').textContent=sc.sub||''; $('#edSub').hidden=!sc.sub; $('#edMsg').textContent='';
-  const val=f=>f.k==='_valor'?((+d.qtd||0)*(+d.preco||0)).toFixed(2):f.k==='pago'?(d.pago?'1':'0'):(d[f.k]??'');
+  const val=f=>f.k==='_valor'?((+d.qtd||0)*(+d.preco||0)).toFixed(2):f.k==='pago'?(d.pago?'1':'0'):(d[f.k]??f.def??'');
   $('#edFields').innerHTML=sc.f.map((f,i)=>{const v=val(f);
     const inp=f.t==='select'?`<select data-k="${f.k}">${f.opts.map(([o,l])=>`<option value="${esc(o)}" ${String(o)===String(v)?'selected':''}>${esc(l)}</option>`).join('')}</select>`
       :`<input data-k="${f.k}" type="${f.t}" value="${esc(v)}" ${f.step?`step="${f.step}"`:''} ${f.min!=null?`min="${f.min}"`:''} ${f.max!=null?`max="${f.max}"`:''} ${f.list?`list="${f.list}"`:''} ${f.t==='number'?'inputmode="decimal"':''} ${f.opt?'':'required'} autocomplete="off">`;
-    return `<label class="fld${f.wide?' wide':''}">${esc(f.l)}${inp}</label>`;}).join('');
+    return `<label class="fld${f.wide?' wide':''}">${esc(f.l)}${inp}</label>`;}).join('')
+    +(()=>{ if(col!=='contas') return ''; const sg=contasSeguintes(d); if(!sg.length) return '';
+      return `<label class="fld wide" style="flex-direction:row;align-items:center;gap:8px;font-size:13px;color:var(--ink)"><input type="checkbox" id="edSeg" checked style="width:auto"> Mudar também ${sg.length===1?'o mês seguinte':'os '+sg.length+' meses seguintes'} a pagar (${d.parcela?'parcelas até '+esc(sg[sg.length-1].parcela):'até '+ymNome(sg[sg.length-1].mes)})</label>`; })();
   const dl=$('#edDlg'); if(dl.showModal) dl.showModal(); else dl.setAttribute('open','');
   setTimeout(()=>{const first=dl.querySelector('[data-k]'); if(first&&!matchMedia('(max-width:640px)').matches) first.focus();},30);
 }
@@ -895,6 +1048,9 @@ document.addEventListener('click',e=>{const b=e.target.closest('[data-ed]'); if(
 $('#edForm').addEventListener('submit',async e=>{
   e.preventDefault(); if(!edCur) return; const {col,id,d,sc}=edCur; const m=$('#edMsg');
   const {id:_x,...data}=d;
+  if(col==='avitem'){ for(const f of sc.f) data[f.k]=$('#edFields').querySelector(`[data-k="${f.k}"]`).value.trim();
+    try{ $('#edSave').disabled=true; if(await avEdita(d,data,m)) closeEd(); }catch(err){flash(m,errTxt(err));}finally{$('#edSave').disabled=false;}
+    return; }
   for(const f of sc.f){ const el=$('#edFields').querySelector(`[data-k="${f.k}"]`); let v=el.value.trim();
     if(f.k==='pago'){data.pago=v==='1';continue;}
     if(f.t==='number'){ if(v===''){ if(f.opt){data[f.k]=null;continue;} flash(m,`Preencha "${f.l}".`);return;} v=+v; if(!isFinite(v)){flash(m,`"${f.l}" não é um número.`);return;} }
@@ -911,7 +1067,14 @@ $('#edForm').addEventListener('submit',async e=>{
   if(col==='licenc'){ if(!data.venc) data.venc=null; data.pagoEm=data.pago?(d.pagoEm||today()):null; }
   if(col==='compras'&&!(data.qtd>0)){flash(m,'Informe a quantidade.');return;}
   if('valor' in data&&col!=='gastos'&&!(data.valor>0)){flash(m,'Informe o valor.');return;}
-  try{ $('#edSave').disabled=true; await store.put(col,id,data); closeEd(); }
+  const segL=col==='contas'&&$('#edSeg')&&$('#edSeg').checked?contasSeguintes(d):[];
+  try{ $('#edSave').disabled=true; await store.put(col,id,data);
+    // Repete a mudança (valor, descrição, categoria, dia) nos meses seguintes ainda a pagar
+    if(segL.length){
+      const mud={}; for(const k of ['valor','descricao','categoria','dia']) if((data[k]??null)!==(d[k]??null)) mud[k]=data[k];
+      if(Object.keys(mud).length) for(const c of segL){ const {id:cid,...cd}=c; const nd={...cd,...mud}; if(nd.dia==null) delete nd.dia; await store.put('contas',cid,nd); }
+    }
+    closeEd(); }
   catch(err){ flash(m,errTxt(err)); }
   finally{ $('#edSave').disabled=false; }
 });
@@ -1548,7 +1711,7 @@ $('#glPdf').addEventListener('click',async()=>{
 });
 
 /* ---------- Abas ---------- */
-const TABS=['resumo','carteira','dividendos','aporte','lancar','cartoes','contas','chacara','veiculos','luzagua','energia','glicemia'];
+const TABS=['resumo','carteira','acoes','dividendos','aporte','lancar','cartoes','contas','chacara','veiculos','luzagua','energia','glicemia'];
 function go(t){ if(t==='fiado'){t='chacara'; chSeg('fiado');} if(!TABS.includes(t)) t='resumo'; if(document.body.classList.contains('guest')) t='glicemia';
   document.body.classList.toggle('tab-glicemia',t==='glicemia');
   document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));
