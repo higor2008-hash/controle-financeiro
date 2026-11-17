@@ -412,6 +412,14 @@ body.priv .atv dd{filter:blur(7px)}
 [data-panel="energia"] .tbl.stack td .st{align-self:flex-start}
 @media (min-width:1000px){#ovKpis:has(> :nth-child(7)){grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media (max-width:720px){#ovKpis .ckpi:last-child:nth-child(odd){grid-column:1/-1}}
+/* ---------- Setas da barra de abas ---------- */
+nav.tabs .navarr{position:absolute;top:0;bottom:1px;width:56px;display:flex;align-items:center;border:0;padding:0 6px;color:var(--ink);cursor:pointer;z-index:2}
+nav.tabs .navarr[hidden]{display:none}
+nav.tabs .navarr.l{left:max(0px,calc(50% - 560px));justify-content:flex-start;background:linear-gradient(90deg,rgba(20,26,46,1) 45%,rgba(20,26,46,0))}
+nav.tabs .navarr.r{right:max(0px,calc(50% - 560px));justify-content:flex-end;background:linear-gradient(270deg,rgba(20,26,46,1) 45%,rgba(20,26,46,0))}
+nav.tabs .navarr svg{background:var(--accent-soft);border:1px solid rgba(124,92,255,.5);border-radius:50%;padding:3px;width:28px;height:28px;box-shadow:0 0 12px rgba(124,92,255,.35)}
+nav.tabs .navarr:hover svg{background:var(--accent);color:#fff}
+@media (max-width:640px){nav.tabs .navarr{display:none!important}}
 </style>
 <style>
 html,body{margin:0;background:var(--bg)}
