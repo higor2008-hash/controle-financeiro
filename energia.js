@@ -4,7 +4,7 @@
    Dados nas coleções solclientes, sollancs e solconfig (tabela cf_docs). */
 (function () {
 const $ = id => document.getElementById(id);
-const C_CLI = "solclientes", C_LAN = "sollancs", C_CFG = "solconfig";
+const C_CLI = "solclientes", C_LAN = "sollancs", C_CFG = "solconfig", C_GAS = "solgastos", C_GAN = "solganhos";
 const MESES = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
 const MESES_EXT = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
 const brl = v => "R$ " + (Number(v) || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -39,6 +39,7 @@ function calc(l) {
 const ST = { Pago: "ok", Pendente: "wait", Atrasado: "late" };
 const pill = s => `<span class="st ${ST[s]}">${s}</span>`;
 
+let gastos = [], ganhos = [], editG = null, editE = null;
 let clientes = [], lancs = [], cfg = {}, db = null, downloads = null, carregado = 0;
 let editL = null, editC = null, armed = null, mesSel = null, seg = "resumo";
 const cliNome = id => (clientes.find(c => c.id === id) || {}).nome || "(cliente removido)";
@@ -46,8 +47,8 @@ const msg = (id, t, ok) => { const m = $(String(id).replace(/^#/, "")); if (!m) 
 
 /* ---------- partes da aba ---------- */
 function enSeg(k) {
-  if (!["resumo", "lanc", "cli"].includes(k)) k = "resumo";
-  seg = k; $("enResumo").hidden = k !== "resumo"; $("enLanc").hidden = k !== "lanc"; $("enCli").hidden = k !== "cli";
+  if (!["resumo", "lanc", "cli", "gas", "gan"].includes(k)) k = "resumo";
+  seg = k; $("enResumo").hidden = k !== "resumo"; $("enLanc").hidden = k !== "lanc"; $("enCli").hidden = k !== "cli"; $("enGas").hidden = k !== "gas"; $("enGan").hidden = k !== "gan";
   document.querySelectorAll("[data-enseg]").forEach(b => b.setAttribute("aria-pressed", b.dataset.enseg === k));
   try { localStorage.setItem("carteira-enseg", k); } catch (e) {}
 }
@@ -65,7 +66,7 @@ function porMes() {
 const kp = (l, v, s, c = "") => `<div class="ckpi"><div class="l">${l}</div><div class="v ${c}">${v}</div><div class="s">${s}</div></div>`;
 function renderResumo() {
   const ms = mesesComLanc(), by = porMes();
-  const anos = [...new Set([...ms.map(m => m.slice(0, 4)), hoje().slice(0, 4)])].sort().reverse();
+  const anos = [...new Set([...ms.map(m => m.slice(0, 4)), ...[...gastos, ...ganhos].map(x => (x.mes || "").slice(0, 4)).filter(Boolean), hoje().slice(0, 4)])].sort().reverse();
   const aSel = $("enAno"), prevA = aSel.value;
   aSel.innerHTML = anos.map(a => `<option>${a}</option>`).join("");
   aSel.value = anos.includes(prevA) ? prevA : (ms.length ? ms[ms.length - 1].slice(0, 4) : anos[0]);
@@ -81,6 +82,7 @@ function renderResumo() {
   // gráfico mês a mês
   const meses = MESES.map((_, i) => ano + "-" + String(i + 1).padStart(2, "0"));
   $("enChart").innerHTML = barras(meses, [meses.map(m => by[m] ? r2(by[m].co) : 0), meses.map(m => by[m] ? r2(by[m].re) : 0)], ["ec", "er"], ano);
+  renderResultado(ano);
   // mês de referência
   if (!mesSel || (!ms.includes(mesSel) && ms.length && mesSel > ms[ms.length - 1])) mesSel = ms.length ? ms[ms.length - 1] : hoje().slice(0, 7);
   $("enMes").textContent = MESES_EXT[+mesSel.slice(5) - 1] + " " + mesSel.slice(0, 4);
@@ -104,7 +106,7 @@ function renderResumo() {
       return `<tr><td>${esc(cl.nome)}</td><td class="n" data-label="kWh">${nf(k, 0)}</td><td class="n" data-label="Cobrado">${brl(co)}</td><td class="n" data-label="Recebido">${brl(re)}</td><td class="n${ab > 0.004 ? " down" : ""}" data-label="Em aberto">${brl(ab)}</td><td class="n" data-label="Atrasadas">${at ? `<span class="st late">${at}</span>` : "0"}</td></tr>`; }).join("")
       : `<tr><td colspan="6" class="empty">Nenhum cliente cadastrado ainda.</td></tr>`) + "</tbody>";
 }
-function barras(meses, series, cls, ano) {
+function barras(meses, series, cls, ano, nomes = ["a cobrar", "recebido"], aria = "Valores a cobrar e recebidos por mês em ") {
   const vals = series.flat(), max = Math.max(0, ...vals);
   if (!max) return `<p class="empty">Sem lançamentos em ${esc(ano)}. As barras aparecem conforme você lança as contas.</p>`;
   const W = 1000, H = 240, L = 56, B = 24, T = 12, raw = max / 4, mag = Math.pow(10, Math.floor(Math.log10(raw))), step = [1, 2, 2.5, 5, 10].map(x => x * mag).find(x => x >= raw), top = step * 4;
@@ -112,9 +114,9 @@ function barras(meses, series, cls, ano) {
   let g = ""; for (let i = 0; i <= 4; i++) { const v = step * i; g += `<line class="grid" x1="${L}" x2="${W}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 6}" y="${y(v) + 3}" text-anchor="end">${v >= 1000 ? nf(v / 1000, v % 1000 ? 1 : 0) + " mil" : nf(v, 0)}</text>`; }
   meses.forEach((m, i) => { const gw = bw * 0.7, w = gw / n;
     series.forEach((s, j) => { const v = s[i]; if (v <= 0) return; const X = L + i * bw + bw * 0.15 + j * w, Y = y(v), h = y(0) - Y;
-      g += `<rect class="${cls[j]}" x="${X.toFixed(1)}" y="${Y.toFixed(1)}" width="${Math.max(1, w - 2).toFixed(1)}" height="${h.toFixed(1)}" rx="2"><title>${MESES[+m.slice(5) - 1]}: ${j ? "recebido" : "a cobrar"} ${brl(v)}</title></rect>`; });
+      g += `<rect class="${cls[j]}" x="${X.toFixed(1)}" y="${Y.toFixed(1)}" width="${Math.max(1, w - 2).toFixed(1)}" height="${h.toFixed(1)}" rx="2"><title>${MESES[+m.slice(5) - 1]}: ${nomes[j]} ${brl(v)}</title></rect>`; });
     g += `<text x="${L + i * bw + bw / 2}" y="${H - 8}" text-anchor="middle" class="lbl">${MESES[+m.slice(5) - 1]}</text>`; });
-  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Valores a cobrar e recebidos por mês em ${esc(ano)}">${g}</svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${aria}${esc(ano)}">${g}</svg>`;
 }
 $("enAno").addEventListener("change", renderResumo);
 $("enPrev").addEventListener("click", () => { mesSel = ymAdd(mesSel, -1); renderResumo(); });
@@ -373,6 +375,130 @@ async function salvarPDF(build, nome, btn, alvo) {
   finally { btn.disabled = false; }
 }
 
+
+/* ---------- gastos (faturas pagas) e ganhos (recebido + economia) ---------- */
+const anoSel = () => $("enAno").value || hoje().slice(0, 4);
+const mesesAno = ano => MESES.map((_, i) => ano + "-" + String(i + 1).padStart(2, "0"));
+function resultadoMes(ano) {
+  const by = {}; mesesAno(ano).forEach(m => { by[m] = { re: 0, ec: 0, ga: 0 }; });
+  lancs.forEach(l => { const o = by[l.mes]; if (o) o.re += calc(l).recebido; });
+  ganhos.forEach(g => { const o = by[g.mes]; if (o) o.ec += +g.valor || 0; });
+  gastos.forEach(g => { const o = by[g.mes]; if (o) o.ga += +g.valor || 0; });
+  return by;
+}
+function totaisAno(ano) {
+  const by = resultadoMes(ano), t = { re: 0, ec: 0, ga: 0 };
+  Object.values(by).forEach(o => { t.re += o.re; t.ec += o.ec; t.ga += o.ga; });
+  t.gan = r2(t.re + t.ec); t.liq = r2(t.gan - t.ga); return t;
+}
+function renderResultado(ano) {
+  const t = totaisAno(ano);
+  $("enResSub").textContent = "Ganho menos o que você pagou de faturas em " + ano;
+  $("enResKpis").innerHTML =
+    kp("Ganho no ano", brl(t.gan), "recebido " + brl(t.re) + " + economia " + brl(t.ec), "up") +
+    kp("Gasto com faturas", brl(t.ga), gastos.filter(g => (g.mes || "").slice(0, 4) === ano).length + " fatura(s) lançada(s)", t.ga > 0.004 ? "down" : "") +
+    kp("Resultado líquido", brl(t.liq), t.liq >= 0 ? "o que sobra no fim" : "gastou mais do que ganhou", t.liq >= 0 ? "gold" : "down");
+}
+function syncAnos() {
+  const a = $("enAno"), ops = a.innerHTML;
+  ["enGAno", "enEAno"].forEach(id => { const s = $(id); if (s.innerHTML !== ops) s.innerHTML = ops; s.value = a.value; });
+}
+["enGAno", "enEAno"].forEach(id => $(id).addEventListener("change", e => { $("enAno").value = e.target.value; renderTudo(); }));
+const sitG = g => g.pago ? "Pago" : (g.vencimento && hoje() > g.vencimento ? "Atrasado" : "Pendente");
+const pillG = g => { const s = sitG(g); return `<span class="st ${ST[s]}">${s === "Pago" ? "Paga" : s === "Pendente" ? "A pagar" : "Atrasada"}</span>`; };
+function renderGastos() {
+  const ano = anoSel(), doAno = gastos.filter(g => (g.mes || "").slice(0, 4) === ano)
+    .sort((a, b) => (b.mes || "").localeCompare(a.mes || "") || (a.descricao || "").localeCompare(b.descricao || ""));
+  const t = doAno.reduce((a, g) => { const v = +g.valor || 0; a.tot += v; if (g.pago) a.pg += v; else a.ab += v; return a; }, { tot: 0, pg: 0, ab: 0 });
+  const nm = new Set(doAno.map(g => g.mes)).size;
+  $("enGKpis").innerHTML = kp("Gasto no ano", brl(t.tot), nm ? "média " + brl(t.tot / nm) + "/mês" : "nada lançado", t.tot > 0.004 ? "down" : "") +
+    kp("Já pago", brl(t.pg), doAno.filter(g => g.pago).length + " fatura(s)", "") +
+    kp("A pagar", brl(t.ab), t.ab > 0.004 ? "ainda falta pagar" : "tudo pago", t.ab > 0.004 ? "gold" : "up");
+  $("egDescList").innerHTML = [...new Set(gastos.map(g => g.descricao).filter(Boolean))].map(d => `<option value="${esc(d)}">`).join("");
+  $("enTblG").innerHTML = `<thead><tr><th>Mês</th><th>Descrição</th><th>UC</th><th class="n">Valor</th><th>Venc.</th><th>Pago em</th><th>Situação</th><th></th></tr></thead><tbody>` +
+    (doAno.length ? doAno.map(g => `<tr><td><b>${mesLbl(g.mes)}</b></td><td data-label="Descrição">${esc(g.descricao)}${g.obs ? `<span class="ensub">${esc(g.obs)}</span>` : ""}</td>
+      <td class="num" data-label="UC">${esc(g.uc)}</td><td class="n" data-label="Valor"><b>${brl(g.valor)}</b></td><td class="num" data-label="Vencimento">${dataLbl(g.vencimento)}</td>
+      <td class="num" data-label="Pago em">${dataLbl(g.pagamento)}</td><td data-label="Situação">${pillG(g)}</td>
+      <td><div class="acts">${g.pago ? "" : `<button class="btn ghost small" type="button" data-egpay="${g.id}">Marcar paga</button>`}
+        <button class="btn ghost small" type="button" data-egedit="${g.id}">Editar</button>
+        <button class="btn ${armed === g.id ? "danger" : "ghost"} small" type="button" data-egdel="${g.id}">${armed === g.id ? "Confirmar" : "Excluir"}</button></div></td></tr>`).join("")
+      : `<tr><td colspan="8" class="empty">Nenhuma fatura lançada em ${esc(ano)}. Toque em “+ Nova fatura” para lançar o que você pagou.</td></tr>`) + "</tbody>" +
+    (doAno.length > 1 ? `<tfoot><tr><td>Total (${doAno.length})</td><td></td><td></td><td class="n" data-label="Valor">${brl(t.tot)}</td><td></td><td></td><td></td><td></td></tr></tfoot>` : "");
+}
+function renderGanhos() {
+  const ano = anoSel(), by = resultadoMes(ano), t = totaisAno(ano), meses = mesesAno(ano);
+  $("enEKpis").innerHTML = kp("Recebido dos clientes", brl(t.re), "pago pelas faturas de energia solar", "") +
+    kp("Economia e outros", brl(t.ec), ganhos.filter(g => (g.mes || "").slice(0, 4) === ano).length + " lançamento(s)", "") +
+    kp("Ganho total", brl(t.gan), "recebido + economia", "up") +
+    kp("Gasto com faturas", brl(t.ga), "veja na aba Gastos", t.ga > 0.004 ? "down" : "") +
+    kp("Resultado líquido", brl(t.liq), "ganho − gasto", t.liq >= 0 ? "gold" : "down");
+  $("enEChart").innerHTML = barras(meses, [meses.map(m => r2(by[m].re + by[m].ec)), meses.map(m => r2(by[m].ga))], ["eg", "eq"], ano, ["ganho", "gasto"], "Ganho e gasto com energia por mês em ");
+  const comDado = meses.filter(m => by[m].re || by[m].ec || by[m].ga);
+  $("enTblMM").innerHTML = `<thead><tr><th>Mês</th><th class="n">Recebido</th><th class="n">Economia</th><th class="n">Ganho</th><th class="n">Gasto</th><th class="n">Líquido</th></tr></thead><tbody>` +
+    (comDado.length ? comDado.map(m => { const o = by[m], g = r2(o.re + o.ec), lq = r2(g - o.ga);
+      return `<tr><td><b>${mesLbl(m)}</b></td><td class="n" data-label="Recebido">${brl(o.re)}</td><td class="n" data-label="Economia">${brl(o.ec)}</td><td class="n up" data-label="Ganho">${brl(g)}</td><td class="n${o.ga > 0.004 ? " down" : ""}" data-label="Gasto">${brl(o.ga)}</td><td class="n${lq < 0 ? " down" : ""}" data-label="Líquido"><b>${brl(lq)}</b></td></tr>`; }).join("")
+      : `<tr><td colspan="6" class="empty">Nada lançado em ${esc(ano)}.</td></tr>`) + "</tbody>" +
+    (comDado.length > 1 ? `<tfoot><tr><td>Total</td><td class="n" data-label="Recebido">${brl(t.re)}</td><td class="n" data-label="Economia">${brl(t.ec)}</td><td class="n" data-label="Ganho">${brl(t.gan)}</td><td class="n" data-label="Gasto">${brl(t.ga)}</td><td class="n" data-label="Líquido">${brl(t.liq)}</td></tr></tfoot>` : "");
+  const doAno = ganhos.filter(g => (g.mes || "").slice(0, 4) === ano).sort((a, b) => (b.mes || "").localeCompare(a.mes || ""));
+  $("eeDescList").innerHTML = [...new Set(ganhos.map(g => g.descricao).filter(Boolean))].map(d => `<option value="${esc(d)}">`).join("");
+  $("enTblE").innerHTML = `<thead><tr><th>Mês</th><th>Tipo</th><th>Descrição</th><th class="n">Valor</th><th></th></tr></thead><tbody>` +
+    (doAno.length ? doAno.map(g => `<tr><td><b>${mesLbl(g.mes)}</b></td><td data-label="Tipo">${g.tipo === "ganho" ? "Outro ganho" : "Economia"}</td><td data-label="Descrição">${esc(g.descricao)}${g.obs ? `<span class="ensub">${esc(g.obs)}</span>` : ""}</td>
+      <td class="n up" data-label="Valor"><b>${brl(g.valor)}</b></td>
+      <td><div class="acts"><button class="btn ghost small" type="button" data-eeedit="${g.id}">Editar</button>
+        <button class="btn ${armed === g.id ? "danger" : "ghost"} small" type="button" data-eedel="${g.id}">${armed === g.id ? "Confirmar" : "Excluir"}</button></div></td></tr>`).join("")
+      : `<tr><td colspan="5" class="empty">Nenhuma economia lançada em ${esc(ano)}. Toque em “+ Lançar economia”.</td></tr>`) + "</tbody>";
+}
+function openG(g) {
+  editG = g ? g.id : null; $("enFormGTit").textContent = g ? "Editar fatura" : "Nova fatura";
+  const ult = [...gastos].sort((a, b) => (b.mes || "").localeCompare(a.mes || ""))[0];
+  $("egMes").value = g ? g.mes || "" : (ult ? ymAdd(ult.mes, 1) : hoje().slice(0, 7));
+  $("egDesc").value = g ? g.descricao || "" : (ult ? ult.descricao || "" : ""); $("egUc").value = g ? g.uc || "" : (ult ? ult.uc || "" : "");
+  $("egValor").value = g ? g.valor ?? "" : ""; $("egVenc").value = g ? g.vencimento || "" : "";
+  $("egPago").value = g ? (g.pago ? "1" : "0") : "1"; $("egPagto").value = g ? g.pagamento || "" : hoje(); $("egObs").value = g ? g.obs || "" : "";
+  $("enFormG").hidden = false; $("enFormG").scrollIntoView({ block: "nearest" }); $("egValor").focus();
+}
+$("enNovoG").addEventListener("click", () => openG(null));
+$("egCancel").addEventListener("click", () => { $("enFormG").hidden = true; editG = null; });
+$("enFormG").addEventListener("submit", async e => {
+  e.preventDefault(); if (!db) return;
+  const pago = $("egPago").value === "1";
+  const g = { mes: $("egMes").value, descricao: $("egDesc").value.trim(), uc: $("egUc").value.trim(), valor: num($("egValor").value) ?? 0,
+    vencimento: $("egVenc").value || null, pago, pagamento: pago ? ($("egPagto").value || hoje()) : null, obs: $("egObs").value.trim(), atualizadoEm: new Date().toISOString() };
+  try { $("egSalvar").disabled = true;
+    if (editG) await db.collection(C_GAS).doc(editG).set(g); else await db.collection(C_GAS).add(g);
+    $("enFormG").hidden = true; editG = null; msg("#enMsgG", "Fatura salva.", true);
+  } catch (_) { msg("#enMsgG", "Não foi possível salvar. Tente de novo."); }
+  finally { $("egSalvar").disabled = false; }
+});
+function openE(g) {
+  editE = g ? g.id : null; $("enFormETit").textContent = g ? "Editar lançamento" : "Lançar economia";
+  $("eeMes").value = g ? g.mes || "" : hoje().slice(0, 7); $("eeTipo").value = g && g.tipo === "ganho" ? "ganho" : "economia";
+  $("eeDesc").value = g ? g.descricao || "" : ""; $("eeValor").value = g ? g.valor ?? "" : ""; $("eeObs").value = g ? g.obs || "" : "";
+  $("enFormE").hidden = false; $("enFormE").scrollIntoView({ block: "nearest" }); $("eeDesc").focus();
+}
+$("enNovoE").addEventListener("click", () => openE(null));
+$("eeCancel").addEventListener("click", () => { $("enFormE").hidden = true; editE = null; });
+$("enFormE").addEventListener("submit", async e => {
+  e.preventDefault(); if (!db) return;
+  const g = { mes: $("eeMes").value, tipo: $("eeTipo").value, descricao: $("eeDesc").value.trim(), valor: num($("eeValor").value) ?? 0, obs: $("eeObs").value.trim(), atualizadoEm: new Date().toISOString() };
+  try { $("eeSalvar").disabled = true;
+    if (editE) await db.collection(C_GAN).doc(editE).set(g); else await db.collection(C_GAN).add(g);
+    $("enFormE").hidden = true; editE = null; msg("#enMsgE", "Salvo.", true);
+  } catch (_) { msg("#enMsgE", "Não foi possível salvar. Tente de novo."); }
+  finally { $("eeSalvar").disabled = false; }
+});
+document.addEventListener("click", async e => {
+  const b = e.target.closest("button"); if (!b || !b.closest('[data-panel="energia"]')) return;
+  const d = b.dataset;
+  if (d.egedit) openG(gastos.find(g => g.id === d.egedit));
+  else if (d.eeedit) openE(ganhos.find(g => g.id === d.eeedit));
+  else if (d.egpay) { try { await db.collection(C_GAS).doc(d.egpay).update({ pago: true, pagamento: hoje() }); msg("#enMsgG", "Marcada como paga.", true); } catch (_) { msg("#enMsgG", "Não foi possível atualizar."); } }
+  else if (d.egdel || d.eedel) { const id = d.egdel || d.eedel, alvo = d.egdel ? "#enMsgG" : "#enMsgE";
+    if (armed !== id) { armed = id; renderTudo(); setTimeout(() => { if (armed === id) { armed = null; renderTudo(); } }, 4000); return; }
+    armed = null;
+    try { await db.collection(d.egdel ? C_GAS : C_GAN).doc(id).delete(); msg(alvo, "Excluído.", true); } catch (_) { msg(alvo, "Não foi possível excluir."); } }
+});
+
 /* ---------- ligação com o resto do site ---------- */
 function tile() {
   if (!carregado || (!clientes.length && !lancs.length)) return null;
@@ -382,7 +508,7 @@ function tile() {
   return { v: brl(ab), s: ult ? "a receber · " + mesLbl(ult) + " " + brl(co) : "nada lançado", c: ab > 0.004 ? "gold" : "up" };
 }
 window.CFEnergia = { tile, calc };
-function renderTudo() { renderResumo(); renderLancs(); renderClientes(); }
+function renderTudo() { renderResumo(); syncAnos(); renderLancs(); renderClientes(); renderGastos(); renderGanhos(); }
 let agendado = 0;
 function mudou() { if (agendado) return; agendado = requestAnimationFrame(() => { agendado = 0; renderTudo(); if (window.cfRender) window.cfRender(); }); }
 renderTudo();
@@ -393,6 +519,8 @@ renderTudo();
   if (!db) return;
   db.collection(C_CLI).onSnapshot(s => { clientes = s.docs.map(d => ({ id: d.id, ...d.data() })).sort((a, b) => (a.nome || "").localeCompare(b.nome || "")); carregado |= 1; mudou(); }, () => {});
   db.collection(C_LAN).onSnapshot(s => { lancs = s.docs.map(d => ({ id: d.id, ...d.data() })); carregado |= 2; mudou(); }, () => {});
+  db.collection(C_GAS).onSnapshot(s => { gastos = s.docs.map(d => ({ id: d.id, ...d.data() })); mudou(); }, () => {});
+  db.collection(C_GAN).onSnapshot(s => { ganhos = s.docs.map(d => ({ id: d.id, ...d.data() })); mudou(); }, () => {});
   db.doc(C_CFG + "/geral").onSnapshot(d => { cfg = d.exists ? d.data() : {}; $("ecfNome").value = cfg.nome || ""; $("ecfPix").value = cfg.pix || ""; $("ecfTel").value = cfg.tel || ""; }, () => {});
 })();
 })();
