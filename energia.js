@@ -288,7 +288,7 @@ function blocoCliente(doc, cl) {
   doc.setTextColor(...CINZA); doc.setFontSize(8.5); doc.setFont("helvetica", "bold"); doc.text("CLIENTE", M, y);
   y += 6; doc.setTextColor(...TINTA); doc.setFontSize(13); doc.text(cl.nome || "", M, y);
   doc.setFont("helvetica", "normal"); doc.setFontSize(10); doc.setTextColor(...CINZA);
-  const info = [cl.uc ? "UC " + cl.uc : "", cl.doc ? "CPF/CNPJ " + cl.doc : ""].filter(Boolean).join("   |   ");
+  const info = cl.uc ? "UC " + cl.uc : "";
   if (info) { y += 6; doc.text(info, M, y); }
   return y;
 }
