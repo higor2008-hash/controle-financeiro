@@ -418,6 +418,10 @@ body.priv .atv dd{filter:blur(7px)}
 .ensub{display:block;font-size:12px;color:var(--ink-3);white-space:normal}
 #enTblL .acts,#enTblC .acts,#enTblAnual .acts{flex-wrap:wrap}
 [data-panel="energia"] .tbl.stack td .st{align-self:flex-start}
+.chart .eg{fill:var(--up)} .chart .eq{fill:var(--down)}
+.enlinks{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+#enTblG .acts,#enTblE .acts{flex-wrap:wrap}
+@media (max-width:640px){[data-panel="energia"] > .chseg{flex-wrap:wrap}[data-panel="energia"] > .chseg button{flex:1 1 30%;padding:11px 4px;font-size:13px}}
 @media (min-width:1000px){#ovKpis:has(> :nth-child(7)){grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media (max-width:720px){#ovKpis .ckpi:last-child:nth-child(odd){grid-column:1/-1}}
 /* ---------- Setas da barra de abas ---------- */
@@ -1045,7 +1049,7 @@ html,body{margin:0;background:var(--bg)}
   </section>
 
   <section class="panel" data-panel="energia" hidden>
-    <div class="seg chseg" aria-label="Parte da energia solar"><button type="button" data-enseg="resumo" aria-pressed="true">Resumo</button><button type="button" data-enseg="lanc" aria-pressed="false">Lançamentos</button><button type="button" data-enseg="cli" aria-pressed="false">Clientes</button></div>
+    <div class="seg chseg" aria-label="Parte da energia solar"><button type="button" data-enseg="resumo" aria-pressed="true">Resumo</button><button type="button" data-enseg="lanc" aria-pressed="false">Lançamentos</button><button type="button" data-enseg="cli" aria-pressed="false">Clientes</button><button type="button" data-enseg="gas" aria-pressed="false">Gastos</button><button type="button" data-enseg="gan" aria-pressed="false">Ganhos</button></div>
 
     <div id="enResumo" class="panel">
       <div class="card">
@@ -1056,6 +1060,13 @@ html,body{margin:0;background:var(--bg)}
         <div class="ckpis ck4" id="enAnoKpis"></div>
         <div class="chart" id="enChart" style="margin-top:16px"></div>
         <div class="ovleg"><span><i style="background:var(--gold)"></i>A cobrar</span><span><i style="background:var(--up)"></i>Recebido</span></div>
+      </div>
+      <div class="card">
+        <div class="headrow">
+          <div><h2>Resultado da energia</h2><p class="sub" id="enResSub">Ganho menos o que você pagou de faturas no ano</p></div>
+          <div class="enlinks"><button class="btn ghost small" type="button" data-enseg="gas">Ver gastos</button><button class="btn ghost small" type="button" data-enseg="gan">Ver ganhos</button></div>
+        </div>
+        <div class="ckpis" id="enResKpis"></div>
       </div>
       <div class="card">
         <div class="headrow">
@@ -1141,6 +1152,63 @@ html,body{margin:0;background:var(--bg)}
           <button class="btn" type="submit">Salvar meus dados</button>
         </form>
         <div class="msg" id="enMsgCfg"></div>
+      </div>
+    </div>
+
+    <div id="enGas" class="panel" hidden>
+      <div class="card">
+        <div class="headrow">
+          <div><h2>Gastos com energia</h2><p class="sub">Faturas de energia que você paga. Esse valor é descontado do seu ganho.</p></div>
+          <div class="enlinks"><select id="enGAno" aria-label="Ano" style="width:auto"></select><button class="btn" type="button" id="enNovoG">+ Nova fatura</button></div>
+        </div>
+        <div class="ckpis" id="enGKpis"></div>
+        <form class="f" id="enFormG" hidden style="margin-top:14px">
+          <h3 class="wide" id="enFormGTit" style="font-size:16px;margin:0">Nova fatura</h3>
+          <label class="fld">Mês de referência<input type="month" id="egMes" required></label>
+          <label class="fld">Descrição<input id="egDesc" list="egDescList" autocomplete="off" maxlength="120" required placeholder="Ex.: Conta da usina"><datalist id="egDescList"></datalist></label>
+          <label class="fld">Nº da UC<input id="egUc" autocomplete="off" maxlength="40"></label>
+          <label class="fld">Valor da fatura (R$)<input type="number" step="0.01" min="0" id="egValor" inputmode="decimal" required></label>
+          <label class="fld">Vencimento<input type="date" id="egVenc"></label>
+          <label class="fld">Situação<select id="egPago"><option value="1">Paga</option><option value="0">A pagar</option></select></label>
+          <label class="fld">Data do pagamento<input type="date" id="egPagto"></label>
+          <label class="fld wide">Observações<input id="egObs" autocomplete="off" maxlength="300"></label>
+          <div class="edbtns wide" style="justify-content:flex-start;margin-top:0"><button class="btn" type="submit" id="egSalvar">Salvar fatura</button><button class="btn ghost" type="button" id="egCancel">Cancelar</button></div>
+        </form>
+        <div class="msg" id="enMsgG"></div>
+        <div class="tbl stack" style="margin-top:12px"><table id="enTblG"></table></div>
+      </div>
+    </div>
+
+    <div id="enGan" class="panel" hidden>
+      <div class="card">
+        <div class="headrow">
+          <div><h2>Ganhos e economia</h2><p class="sub">O que os clientes pagaram mais o que você economizou, menos as faturas que você pagou</p></div>
+          <div class="enlinks"><select id="enEAno" aria-label="Ano" style="width:auto"></select><button class="btn" type="button" id="enNovoE">+ Lançar economia</button></div>
+        </div>
+        <div class="ckpis ck4" id="enEKpis"></div>
+        <div class="chart" id="enEChart" style="margin-top:16px"></div>
+        <div class="ovleg"><span><i style="background:var(--up)"></i>Ganho</span><span><i style="background:var(--down)"></i>Gasto</span></div>
+      </div>
+      <div class="card">
+        <h2>Mês a mês</h2>
+        <p class="sub">Recebido dos clientes pelo mês de referência da conta</p>
+        <div class="tbl stack"><table id="enTblMM"></table></div>
+      </div>
+      <div class="card">
+        <div class="headrow">
+          <div><h2>Economia e outros ganhos</h2><p class="sub">Lance aqui o que você economizou (por exemplo, na sua própria conta) ou outro ganho com a energia</p></div>
+        </div>
+        <form class="f" id="enFormE" hidden style="margin-top:4px">
+          <h3 class="wide" id="enFormETit" style="font-size:16px;margin:0">Lançar economia</h3>
+          <label class="fld">Mês<input type="month" id="eeMes" required></label>
+          <label class="fld">Tipo<select id="eeTipo"><option value="economia">Economia</option><option value="ganho">Outro ganho</option></select></label>
+          <label class="fld">Descrição<input id="eeDesc" list="eeDescList" autocomplete="off" maxlength="120" required placeholder="Ex.: Economia na conta de casa"><datalist id="eeDescList"></datalist></label>
+          <label class="fld">Valor (R$)<input type="number" step="0.01" min="0" id="eeValor" inputmode="decimal" required></label>
+          <label class="fld wide">Observações<input id="eeObs" autocomplete="off" maxlength="300"></label>
+          <div class="edbtns wide" style="justify-content:flex-start;margin-top:0"><button class="btn" type="submit" id="eeSalvar">Salvar</button><button class="btn ghost" type="button" id="eeCancel">Cancelar</button></div>
+        </form>
+        <div class="msg" id="enMsgE"></div>
+        <div class="tbl stack" style="margin-top:10px"><table id="enTblE"></table></div>
       </div>
     </div>
   </section>
