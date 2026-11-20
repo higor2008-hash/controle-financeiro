@@ -847,6 +847,23 @@ html,body{margin:0;background:var(--bg)}
     <div class="seg chseg" role="tablist" aria-label="Parte da chácara"><button type="button" data-chseg="main" aria-pressed="true">Leite e vendas</button><button type="button" data-chseg="fiado" aria-pressed="false">Fiado e clientes</button></div>
     <div id="chMain">
     <div class="card">
+      <h2>Nova venda</h2>
+      <p class="sub">O total é quantidade × preço</p>
+      <form class="f" id="fVenda">
+        <label class="fld">Data<input id="vData" type="date" required></label>
+        <label class="fld">Produto<input id="vProd" required value="Queijo" list="prodList" autocomplete="off"></label>
+        <label class="fld">Quantidade<input id="vQtd" type="number" min="0" step="0.001" required inputmode="decimal"></label>
+        <label class="fld">Unidade<select id="vUn"><option value="kg">kg</option><option value="L">litro</option><option value="un">unidade</option></select></label>
+        <label class="fld">Preço por unidade (R$)<input id="vPreco" type="number" min="0" step="0.01" required inputmode="decimal"></label>
+        <label class="fld wide">Cliente<input id="vCli" placeholder="Nome do cliente" list="cliList" autocomplete="off"></label>
+        <label class="fld">Pagamento<select id="vPago"><option value="1">Recebido</option><option value="0">A receber (fiado)</option></select></label>
+        <button class="btn" type="submit">Lançar venda</button>
+      </form>
+      <p class="hint" id="vTotal"></p>
+      <div class="msg" id="mVenda"></div>
+      <datalist id="prodList"><option value="Queijo"><option value="Leite"></datalist><datalist id="cliList"></datalist>
+    </div>
+    <div class="card">
       <div class="headrow">
         <div><h2>Chácara Betel</h2><p class="sub">Leite, queijo, despesas e lucro do mês</p></div>
         <div class="fatnav"><button class="btn ghost small" id="vdPrev" aria-label="Mês anterior">‹</button><span class="mes" id="vdMes"></span><button class="btn ghost small" id="vdNext" aria-label="Próximo mês">›</button></div>
@@ -892,23 +909,6 @@ html,body{margin:0;background:var(--bg)}
       </div>
     </div>
     <div>
-      <div class="card">
-        <h2>Nova venda</h2>
-        <p class="sub">O total é quantidade × preço</p>
-        <form class="f" id="fVenda">
-          <label class="fld">Data<input id="vData" type="date" required></label>
-          <label class="fld">Produto<input id="vProd" required value="Queijo" list="prodList" autocomplete="off"></label>
-          <label class="fld">Quantidade<input id="vQtd" type="number" min="0" step="0.001" required inputmode="decimal"></label>
-          <label class="fld">Unidade<select id="vUn"><option value="kg">kg</option><option value="L">litro</option><option value="un">unidade</option></select></label>
-          <label class="fld">Preço por unidade (R$)<input id="vPreco" type="number" min="0" step="0.01" required inputmode="decimal"></label>
-          <label class="fld wide">Cliente<input id="vCli" placeholder="Nome do cliente" list="cliList" autocomplete="off"></label>
-          <label class="fld">Pagamento<select id="vPago"><option value="1">Recebido</option><option value="0">A receber (fiado)</option></select></label>
-          <button class="btn" type="submit">Lançar venda</button>
-        </form>
-        <p class="hint" id="vTotal"></p>
-        <div class="msg" id="mVenda"></div>
-        <datalist id="prodList"><option value="Queijo"><option value="Leite"></datalist><datalist id="cliList"></datalist>
-      </div>
       <div class="card" id="ciCard">
         <h2>Meus itens</h2>
         <p class="sub">Cadastre produtos para vender e itens de despesa. Eles aparecem na lista ao lançar, já com o preço.</p>
