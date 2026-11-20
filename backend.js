@@ -291,7 +291,8 @@
     scr.hidden = true; document.body.classList.remove("locked");
     tempoReal();
     const s = document.createElement("script"); s.src = "app.js?v=" + (cfg.versao || "1");
-    s.onload = () => { const e = document.createElement("script"); e.src = "energia.js?v=" + (cfg.versao || "1"); document.body.appendChild(e); };
+    s.onload = () => { const e = document.createElement("script"); e.src = "energia.js?v=" + (cfg.versao || "1"); document.body.appendChild(e);
+      const r = document.createElement("script"); r.src = "relatorio.js?v=" + (cfg.versao || "1"); document.body.appendChild(r); };
     document.body.appendChild(s);
     if (dono) painelAcessos(); else avisoConvidado(convidado, nivelGlic, session.user.email);
     const hdr = $(".hdr-r");
