@@ -346,7 +346,7 @@ function renderHist(V,demo){
     $('#tblHist').innerHTML=`<thead><tr><th>Data</th><th>Tipo</th><th>Ativo</th><th class="n">Qtd</th><th class="n">Preço</th><th class="n">Total</th><th></th></tr></thead><tbody>${rows.length?rows.map(o=>`<tr><td class="num">${fmtD(o.data)}</td><td>${isCot(clsOf(V,o.ticker))?(o.tipo==='venda'?'<span class="pill bad">Venda</span>':'<span class="pill good">Compra</span>'):(o.tipo==='venda'?'<span class="pill bad">Resgate</span>':'<span class="pill good">Aplicação</span>')}</td><td><span class="tk">${esc(nomeOf(V,o.ticker))}</span> ${clsPill(clsOf(V,o.ticker))}</td><td class="n">${isCot(clsOf(V,o.ticker))?NQ.format(o.qtd):'—'}</td><td class="n">${isCot(clsOf(V,o.ticker))?R(+o.preco):'—'}</td><td class="n">${R(o.qtd*o.preco+(+o.taxa||0)*(o.tipo==='venda'?-1:1))}</td><td>${del('compras',o.id)}</td></tr>`).join(''):'<tr><td colspan="7" class="empty">Nada lançado.</td></tr>'}</tbody>`;
   } else {
     const rows=[...V.divs].sort((a,b)=>(b.data||'').localeCompare(a.data||''));
-    $('#tblHist').innerHTML=`<thead><tr><th>Data</th><th>Tipo</th><th>Ativo</th><th class="n">Valor</th><th class="n">Por ação</th><th></th></tr></thead><tbody>${rows.length?rows.map(d=>`<tr><td class="num">${fmtD(d.data)}</td><td>${esc(d.tipo||'Dividendo')}</td><td class="tk">${esc(nomeOf(V,d.ticker))}</td><td class="n gold">${R(+d.valor)}</td><td class="n">${(()=>{const pa=porAcao(V,d);return pa?R4(pa):'—';})()}</td><td>${del('dividendos',d.id)}</td></tr>`).join(''):'<tr><td colspan="6" class="empty">Nada lançado.</td></tr>'}</tbody>`;
+    $('#tblHist').innerHTML=`<thead><tr><th>Data</th><th>Tipo</th><th>Ativo</th><th>Banco</th><th class="n">Valor</th><th class="n">Por ação</th><th></th></tr></thead><tbody>${rows.length?rows.map(d=>`<tr><td class="num">${fmtD(d.data)}</td><td>${esc(d.tipo||'Dividendo')}</td><td class="tk">${esc(nomeOf(V,d.ticker))}</td><td>${esc((b=>BANCO_NOME[b]||b)(atvNorm(atvBancoDe(V,d.ticker,d.corretora))))}</td><td class="n gold">${R(+d.valor)}</td><td class="n">${(()=>{const pa=porAcao(V,d);return pa?R4(pa):'—';})()}</td><td>${del('dividendos',d.id)}</td></tr>`).join(''):'<tr><td colspan="7" class="empty">Nada lançado.</td></tr>'}</tbody>`;
   }
 }
 function renderCmp(V,P,d12){
@@ -392,6 +392,7 @@ $('#tblCmp').addEventListener('click',e=>{const tr=e.target.closest('[data-cmp]'
 /* ---------- Ações e FIIs (cadastro fácil + cotação da internet) ---------- */
 let atvBusca=null;
 const ATV_BANCOS=['Nubank','XP','Inter'];
+const BANCO_NOME={Nubank:'Nubank',XP:'XP Investimentos',Inter:'Banco Inter'};
 let atvBanco=(()=>{try{const v=localStorage.getItem('cf-atv-banco');return v==='todos'||ATV_BANCOS.includes(v)?v:'Nubank';}catch(e){return 'Nubank';}})();
 function atvBancoDe(V,t,corr){ if(corr) return corr; const a=V.ativos.find(x=>x.ticker===t); return (a&&a.corretora)||'Nubank'; }
 function atvNorm(b){ const k=String(b||'').trim().toLowerCase(); return k.startsWith('nu')?'Nubank':k.startsWith('xp')?'XP':k.startsWith('inter')||k.includes('inter')?'Inter':String(b||'').trim()||'Nubank'; }
@@ -485,6 +486,7 @@ function divHint(){
   h.textContent=v>0?`≈ ${R4(v/q)} por ação/cota (${R(v)} ÷ ${NQ.format(q)} ${du===dt?'que você tinha em '+fmtD(dt):'do seu primeiro lançamento, em '+fmtD(du)}).`:`Você tinha ${NQ.format(q)} em ${fmtD(du)}. Digite o valor total para ver quanto dá por ação.`;
 }
 ['dTk','dData','dValor'].forEach(id=>{$('#'+id).addEventListener('input',divHint);$('#'+id).addEventListener('change',divHint);});
+$('#dTk').addEventListener('change',()=>{ const raw=$('#dTk').value.trim(); const a=S.ativos.find(x=>x.ticker===up(raw)||x.ticker===slug(raw)||(x.nome&&x.nome===raw)); if(a&&a.corretora){ const b=atvNorm(a.corretora); if(ATV_BANCOS.includes(b)) $('#dBanco').value=b; } });
 function R4(v){return 'R$ '+(+v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:4});}
 function fmtD(s){return s?s.slice(8,10)+'/'+s.slice(5,7)+'/'+s.slice(0,4):'—';}
 
@@ -565,7 +567,7 @@ $('#fDiv').addEventListener('submit',async e=>{
   const t=exist?exist.ticker:up(raw);
   if(!/^[A-Z0-9.\-]{2,40}$/.test(t)){flash(m,'Escolha um ativo da lista ou digite o ticker.');return;}
   if(!(v>0)){flash(m,'Informe o valor recebido.');return;}
-  try{ await store.add('dividendos',{ticker:t,tipo:$('#dTipo').value,data:$('#dData').value||today(),valor:v}); const q=isCot(clsOf(S,t))?qtdPag(S,t,$('#dData').value||today())[0]:0; flash(m,`${R(v)} de ${exist&&exist.nome||t} lançado.`+(q?` Deu ${R4(v/q)} por ação/cota.`:''),true); $('#dValor').value=''; divHint(); }
+  try{ await store.add('dividendos',{ticker:t,tipo:$('#dTipo').value,data:$('#dData').value||today(),valor:v,corretora:$('#dBanco').value}); const q=isCot(clsOf(S,t))?qtdPag(S,t,$('#dData').value||today())[0]:0; flash(m,`${R(v)} de ${exist&&exist.nome||t} lançado.`+(q?` Deu ${R4(v/q)} por ação/cota.`:''),true); $('#dValor').value=''; divHint(); }
   catch(err){flash(m,errTxt(err));}
 });
 function syncIndForm(){showOnly($('#fInd'),$('#iCls').value||inferCls(up($('#iTk').value)));}
@@ -809,7 +811,8 @@ function renderOv(patrimonio){
     k('cartoes','Fatura do cartão',R(ft),ft?(fatPaga?'paga':nCart+' cartã'+(nCart===1?'o':'os')+' · em aberto'):'nada neste mês')+
     k('carteira','Investimentos',R(patrimonio),'patrimônio hoje','gold')+
     (()=>{const VD=chVendido(ym), u=VD.n?null:chUltMes(ym); return k('chacara','Chácara no mês',R(VD.tot),VD.tot?'vendido · lucro '+R(lucro):(u?'nada ainda · '+MESES_L[+u.slice(5)-1].toLowerCase()+' '+R(chVendido(u).tot):'nada vendido'),VD.tot?'up':'');})()+
-    k('luzagua','Luz e água',uaPg+' de '+uas.length,'pagas neste mês');
+    k('luzagua','Luz e água',uaPg+' de '+uas.length,'pagas neste mês')+
+    (()=>{const e=window.CFEnergia&&window.CFEnergia.tile(); return e?k('energia','Energia solar',e.v,e.s,e.c):'';})();
   const meses=[-4,-3,-2,-1,0,1].map(d=>ymAdd(ym,d));
   $('#ovChart').innerHTML=ovBars(meses,[meses.map(m=>soma(S.receitas.filter(r=>r.mes===m))+chRec(m)),meses.map(m=>soma(contasDoMes(m,P))+chDesp(m))],['rc','dc'])
     +'<div class="ovleg"><span><i style="background:#4fd08a"></i>Receitas</span><span><i style="background:#ff5c74"></i>Contas</span></div>';
@@ -991,7 +994,7 @@ function edSchema(col,d){
     case 'cartoes': return {tit:'Editar cartão',f:[{k:'nome',l:'Nome do cartão',t:'text',wide:1},num('fech','Dia do fechamento',{step:'1',min:1,max:31}),
       num('venc','Dia do vencimento',{step:'1',min:1,max:31}),num('limite','Limite (R$)',{step:'0.01',opt:1})]};
     case 'dividendos': return {tit:'Editar provento',f:[{k:'ticker',l:'Ativo',t:'text',list:'ativosList'},{k:'tipo',l:'Tipo',t:'select',opts:TIPOS_DIV.map(c=>[c,c])},
-      {k:'data',l:'Data',t:'date'},num('valor','Valor recebido (R$)',{step:'0.01'})]};
+      {k:'corretora',l:'Banco ou corretora',t:'select',opts:ATV_BANCOS.map(b=>[b,BANCO_NOME[b]]),def:atvNorm(atvBancoDe(S,d.ticker,d.corretora))},{k:'data',l:'Data',t:'date'},num('valor','Valor recebido (R$)',{step:'0.01'})]};
     case 'compras': { const cot=isCot(clsOf(S,d.ticker));
       return cot?{tit:'Editar compra ou venda',f:[{k:'tipo',l:'Tipo',t:'select',opts:[['compra','Compra'],['venda','Venda']]},{k:'ticker',l:'Ativo',t:'text',list:'ativosList'},
         {k:'data',l:'Data',t:'date'},num('qtd','Quantidade',{step:'any'}),num('preco','Preço por unidade (R$)',{step:'any',opt:1}),num('taxa','Taxas (R$)',{step:'0.01',opt:1})]}
@@ -1029,7 +1032,7 @@ function openEd(col,id){
   const d=col==='avitem'?avItem(id):S[colKey(col)].find(x=>x.id===id); if(!d) return;
   const sc=edSchema(col,d); edCur={col,id,d,sc};
   $('#edTit').textContent=sc.tit; $('#edSub').textContent=sc.sub||''; $('#edSub').hidden=!sc.sub; $('#edMsg').textContent='';
-  const val=f=>f.k==='_valor'?((+d.qtd||0)*(+d.preco||0)).toFixed(2):f.k==='pago'?(d.pago?'1':'0'):(d[f.k]??'');
+  const val=f=>f.k==='_valor'?((+d.qtd||0)*(+d.preco||0)).toFixed(2):f.k==='pago'?(d.pago?'1':'0'):(d[f.k]??f.def??'');
   $('#edFields').innerHTML=sc.f.map((f,i)=>{const v=val(f);
     const inp=f.t==='select'?`<select data-k="${f.k}">${f.opts.map(([o,l])=>`<option value="${esc(o)}" ${String(o)===String(v)?'selected':''}>${esc(l)}</option>`).join('')}</select>`
       :`<input data-k="${f.k}" type="${f.t}" value="${esc(v)}" ${f.step?`step="${f.step}"`:''} ${f.min!=null?`min="${f.min}"`:''} ${f.max!=null?`max="${f.max}"`:''} ${f.list?`list="${f.list}"`:''} ${f.t==='number'?'inputmode="decimal"':''} ${f.opt?'':'required'} autocomplete="off">`;
@@ -1762,12 +1765,12 @@ $('#glPdf').addEventListener('click',async()=>{
 });
 
 /* ---------- Abas ---------- */
-const TABS=['resumo','carteira','acoes','dividendos','aporte','lancar','cartoes','contas','chacara','veiculos','luzagua','glicemia'];
+const TABS=['resumo','carteira','acoes','dividendos','aporte','lancar','cartoes','contas','chacara','veiculos','luzagua','energia','glicemia'];
 function go(t){ if(t==='fiado'){t='chacara'; chSeg('fiado');} if(!TABS.includes(t)) t='resumo'; if(document.body.classList.contains('guest')) t='glicemia';
   document.body.classList.toggle('tab-glicemia',t==='glicemia');
   document.querySelectorAll('[data-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.tab===t));
   document.querySelectorAll('[data-panel]').forEach(p=>p.hidden=p.dataset.panel!==t);
-  $('#kpis').hidden=(t==='contas'||t==='cartoes'||t==='chacara'||t==='veiculos'||t==='luzagua'||t==='glicemia');
+  $('#kpis').hidden=(t==='contas'||t==='cartoes'||t==='chacara'||t==='veiculos'||t==='luzagua'||t==='energia'||t==='glicemia');
   if(t==='glicemia') glRender();
   secClose(); const mx=document.querySelector(`nav.tabs .mx[data-tab="${t}"] .ts`); const nm=$('#navMore'); nm.classList.toggle('on',!!mx); $('#navMoreTxt').textContent=mx?mx.textContent:'Mais'; go.dots=go.dots||nm.querySelector('.ic').innerHTML; nm.querySelector('.ic').innerHTML=mx?mx.parentNode.querySelector('.ic').innerHTML:go.dots;
   try{localStorage.setItem('carteira-tab',t);}catch(e){}
@@ -1776,6 +1779,20 @@ function go(t){ if(t==='fiado'){t='chacara'; chSeg('fiado');} if(!TABS.includes(
   go.ready=true;
 }
 /* Celular: barra com as seções principais + "Mais" abre todas em quadros grandes */
+/* Setas na barra de abas (computador): aparecem quando há abas escondidas para a esquerda ou para a direita */
+(function(){
+  const nav=document.querySelector('nav.tabs'), w=nav&&nav.querySelector('.wrap'); if(!w) return;
+  const chev=d=>`<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
+  const mk=(lado,d,txt)=>{const b=document.createElement('button'); b.type='button'; b.className='navarr '+lado; b.setAttribute('aria-label',txt); b.title=txt; b.innerHTML=chev(d); b.hidden=true; nav.appendChild(b); return b;};
+  const L=mk('l','M15 6l-6 6 6 6','Ver abas anteriores'), Rt=mk('r','M9 6l6 6-6 6','Ver mais abas');
+  const upd=()=>{ const max=w.scrollWidth-w.clientWidth; L.hidden=!(w.scrollLeft>4); Rt.hidden=!(w.scrollLeft<max-4); };
+  L.addEventListener('click',()=>w.scrollBy({left:-w.clientWidth*0.7,behavior:'smooth'}));
+  Rt.addEventListener('click',()=>w.scrollBy({left:w.clientWidth*0.7,behavior:'smooth'}));
+  w.addEventListener('scroll',upd,{passive:true}); window.addEventListener('resize',upd);
+  nav.addEventListener('click',e=>{ const b=e.target.closest('[data-tab]'); if(b&&w.contains(b)) setTimeout(()=>{ b.scrollIntoView({block:'nearest',inline:'nearest',behavior:'smooth'}); },0); });
+  setTimeout(()=>{ const s=w.querySelector('[aria-selected="true"]'); if(s&&w.scrollWidth>w.clientWidth) w.scrollLeft=Math.max(0,s.offsetLeft-w.clientWidth/2); upd(); },50);
+  upd();
+})();
 $('#secGrid').innerHTML=[...document.querySelectorAll('nav.tabs [data-tab]')].map(b=>`<button type="button" data-tab="${b.dataset.tab}" aria-selected="false">${b.querySelector('.ic').innerHTML}<span>${b.querySelector('.tl').textContent}</span></button>`).join('');
 function secClose(){ const s=$('#secSheet'); if(s.hidden) return; s.hidden=true; $('#navMore').setAttribute('aria-expanded','false'); if(secClose.back){secClose.back=false; $('#navMore').focus();} }
 $('#navMore').addEventListener('click',()=>{ const s=$('#secSheet'); s.hidden=false; $('#navMore').setAttribute('aria-expanded','true'); (s.querySelector('[aria-selected="true"]')||s.querySelector('#secGrid button')).focus(); });
@@ -1789,5 +1806,6 @@ $('#oData').value=today(); $('#dData').value=today(); $('#gData').value=today();
 $('#gCat').innerHTML=CATS.map(c=>`<option>${c}</option>`).join('');
 $('#ctCat').innerHTML=CCATS.map(c=>`<option>${c}</option>`).join(''); $('#ctM').value=today().slice(0,7);
 modOptions($('#oMod')); modOptions($('#iCls'),true); syncOpForm(); syncIndForm();
+window.cfRender=()=>{try{render();}catch(e){}};
 boot();
 })();
