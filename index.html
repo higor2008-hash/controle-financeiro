@@ -54,6 +54,11 @@ tr.pago .cdesc{text-decoration:line-through}
 .ckpi .v.up{color:var(--up)} .ckpi .v.down{color:var(--down)}
 .acts{display:inline-flex;gap:6px;justify-content:flex-end}
 dialog#edDlg{border:1px solid var(--line);border-radius:14px;padding:20px;background:var(--surface);color:var(--ink);width:min(560px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+dialog#crDlg{border:1px solid var(--line);border-radius:14px;padding:20px;background:var(--surface);color:var(--ink);width:min(560px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+dialog#crDlg::backdrop{background:rgba(0,0,0,.45)}
+dialog#crDlg h2{font-size:18px;font-weight:700}
+.crprev{margin:12px 0}.crprev img{display:block;max-width:100%;max-height:60dvh;margin:0 auto;border-radius:8px;border:1px solid var(--line)}
+@media (max-width:640px){dialog#crDlg{width:100vw;max-width:100vw;margin:auto 0 0;border-radius:16px 16px 0 0;max-height:92dvh;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}#crDlg .edbtns .btn{flex:1}}
 dialog#edDlg::backdrop{background:rgba(0,0,0,.45)}
 dialog#edDlg h2{font-size:18px;font-weight:700}
 .edbtns{display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
@@ -985,6 +990,9 @@ html,body{margin:0;background:var(--bg)}
       </div>
       <div class="ckpis ck4" id="vcKpis"></div>
       <div class="tbl" style="margin-top:14px"><table id="tblLic"></table></div>
+      <div class="msg" id="mCrlv"></div>
+      <p class="hint" style="margin-top:6px">Toque em <b>+ CRLV</b> para anexar o documento do ano (PDF ou foto, até 10 MB).</p>
+      <input type="file" id="crlvIn" accept="application/pdf,.pdf,image/jpeg,image/png,image/webp,image/heic" hidden>
     </div>
     <div class="grid2">
       <div class="card">
@@ -1268,6 +1276,13 @@ html,body{margin:0;background:var(--bg)}
     <div class="msg" id="edMsg"></div>
     <div class="edbtns"><button class="btn ghost" type="button" id="edCancel">Cancelar</button><button class="btn" type="submit" id="edSave">Salvar alterações</button></div>
   </form>
+</dialog>
+<dialog id="crDlg" aria-labelledby="crTit">
+  <h2 id="crTit">CRLV</h2>
+  <p class="sub" id="crSub"></p>
+  <div id="crPrev" class="crprev"></div>
+  <div class="edbtns"><a class="btn ghost" id="crAbrir" target="_blank" rel="noopener noreferrer">Abrir</a><a class="btn" id="crBaixar" rel="noopener noreferrer">Baixar</a></div>
+  <div class="edbtns" style="margin-top:8px"><button class="btn danger" type="button" id="crRem">Remover arquivo</button><button class="btn ghost" type="button" id="crTrocar">Trocar arquivo</button><button class="btn ghost" type="button" id="crFechar">Fechar</button></div>
 </dialog>
 <datalist id="ativosList"></datalist>
 <datalist id="fontesList"></datalist>
