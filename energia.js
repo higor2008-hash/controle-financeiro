@@ -28,13 +28,15 @@ function calc(l) {
   const cobrar = r2(liquido + (+l.cip || 0));
   const recebido = +l.recebido || 0;
   const aberto = r2(cobrar - recebido);
+  const fatura = +l.faturaPaga || 0;
+  const ganho = r2(recebido - fatura);
   const bandValor = l.bandeira && l.bandeira !== "verde" ? (+l.bandeiraValor || 0) : 0;
   const bandEcon = r2((+l.kwh || 0) * bandValor);
   const economia = r2(desconto + bandEcon);
   let status = "Pendente";
   if (aberto <= 0.005 && cobrar > 0) status = "Pago";
   else if (l.vencimento && hoje() > l.vencimento) status = "Atrasado";
-  return { bruto, desconto, liquido, cobrar, recebido, aberto, status, bandEcon, economia };
+  return { bruto, desconto, liquido, cobrar, recebido, aberto, status, bandEcon, economia, fatura, ganho };
 }
 const ST = { Pago: "ok", Pendente: "wait", Atrasado: "late" };
 const pill = s => `<span class="st ${ST[s]}">${s}</span>`;
@@ -130,13 +132,14 @@ function renderLancs() {
   const fm = $("enFMes").value, fc = $("enFCli").value, fs = $("enFSt").value;
   const rows = lancs.map(l => ({ l, c: calc(l) })).filter(({ l, c }) => (!fm || l.mes === fm) && (!fc || l.clienteId === fc) && (!fs || c.status === fs))
     .sort((a, b) => (b.l.mes || "").localeCompare(a.l.mes || "") || cliNome(a.l.clienteId).localeCompare(cliNome(b.l.clienteId)));
-  const t = rows.reduce((a, { l, c }) => (a.k += +l.kwh || 0, a.co += c.cobrar, a.re += c.recebido, a), { k: 0, co: 0, re: 0 });
-  $("enTblL").innerHTML = `<thead><tr><th>Mês</th><th>Cliente</th><th class="n">kWh</th><th class="n">Tarifa</th><th class="n">Desc.</th><th class="n">Ilum. púb.</th><th class="n">A cobrar</th><th class="n">Recebido</th><th>Venc.</th><th>Situação</th><th></th></tr></thead><tbody>` +
+  const t = rows.reduce((a, { l, c }) => (a.k += +l.kwh || 0, a.co += c.cobrar, a.re += c.recebido, a.fp += c.fatura, a.gn += c.ganho, a), { k: 0, co: 0, re: 0, fp: 0, gn: 0 });
+  $("enTblL").innerHTML = `<thead><tr><th>Mês</th><th>Cliente</th><th class="n">kWh</th><th class="n">Tarifa</th><th class="n">Desc.</th><th class="n">Ilum. púb.</th><th class="n">A cobrar</th><th class="n">Recebido</th><th class="n">Fatura paga</th><th class="n">Ganho</th><th>Venc.</th><th>Situação</th><th></th></tr></thead><tbody>` +
     (rows.length ? rows.map(({ l, c }) => `<tr>
       <td><b>${mesLbl(l.mes)}</b>${l.bandeira && l.bandeira !== "verde" ? `<span class="ensub">bandeira ${bandNome(l.bandeira).toLowerCase()}</span>` : ""}</td>
       <td data-label="Cliente">${esc(cliNome(l.clienteId))}${l.obs ? `<span class="ensub">${esc(l.obs)}</span>` : ""}</td>
       <td class="n" data-label="kWh">${nf(l.kwh, 0)}</td><td class="n" data-label="Tarifa">${nf(l.tarifa, 6)}</td><td class="n" data-label="Desconto">${nf(l.descontoPct, 0)}%</td>
       <td class="n" data-label="Ilum. pública">${brl(l.cip)}</td><td class="n" data-label="A cobrar"><b>${brl(c.cobrar)}</b></td><td class="n" data-label="Recebido">${brl(c.recebido)}</td>
+      <td class="n${c.fatura > 0.004 ? " down" : ""}" data-label="Fatura paga">${c.fatura > 0.004 ? "− " + brl(c.fatura) : brl(0)}</td><td class="n${c.ganho < -0.004 ? " down" : c.ganho > 0.004 ? " up" : ""}" data-label="Ganho"><b>${brl(c.ganho)}</b></td>
       <td class="num" data-label="Vencimento">${dataLbl(l.vencimento)}</td><td data-label="Situação">${pill(c.status)}</td>
       <td><div class="acts">
         <button class="btn small" type="button" data-enpdf="${l.id}">PDF</button>
@@ -145,8 +148,8 @@ function renderLancs() {
         <button class="btn ghost small" type="button" data-enedit="${l.id}">Editar</button>
         <button class="btn ${armed === l.id ? "danger" : "ghost"} small" type="button" data-endel="${l.id}">${armed === l.id ? "Confirmar" : "Excluir"}</button>
       </div></td></tr>`).join("")
-      : `<tr><td colspan="11" class="empty">${lancs.length ? "Nenhum lançamento com esses filtros." : "Nenhum lançamento ainda. Toque em “+ Novo lançamento” para lançar a conta do mês."}</td></tr>`) + "</tbody>" +
-    (rows.length > 1 ? `<tfoot><tr><td>Total (${rows.length})</td><td></td><td class="n" data-label="kWh">${nf(t.k, 0)}</td><td></td><td></td><td></td><td class="n" data-label="A cobrar">${brl(t.co)}</td><td class="n" data-label="Recebido">${brl(t.re)}</td><td></td><td></td><td></td></tr></tfoot>` : "");
+      : `<tr><td colspan="13" class="empty">${lancs.length ? "Nenhum lançamento com esses filtros." : "Nenhum lançamento ainda. Toque em “+ Novo lançamento” para lançar a conta do mês."}</td></tr>`) + "</tbody>" +
+    (rows.length > 1 ? `<tfoot><tr><td>Total (${rows.length})</td><td></td><td class="n" data-label="kWh">${nf(t.k, 0)}</td><td></td><td></td><td></td><td class="n" data-label="A cobrar">${brl(t.co)}</td><td class="n" data-label="Recebido">${brl(t.re)}</td><td class="n" data-label="Fatura paga">${t.fp > 0.004 ? "− " + brl(t.fp) : brl(0)}</td><td class="n" data-label="Ganho">${brl(t.gn)}</td><td></td><td></td><td></td></tr></tfoot>` : "");
 }
 ["enFMes", "enFCli", "enFSt"].forEach(id => $(id).addEventListener("change", renderLancs));
 
@@ -154,20 +157,27 @@ function formToL() {
   const b = $("elBand").value;
   return { mes: $("elMes").value, clienteId: $("elCli").value, kwh: num($("elKwh").value), tarifa: num($("elTarifa").value), descontoPct: num($("elDesc").value),
     bandeira: b, bandeiraValor: b === "verde" ? 0 : (num($("elBandVal").value) ?? 0),
-    cip: num($("elCip").value) ?? 0, contaDistribuidora: num($("elConta").value), vencimento: $("elVenc").value || null, pagamento: $("elPagto").value || null,
+    cip: num($("elCip").value) ?? 0, contaDistribuidora: num($("elConta").value), faturaPaga: num($("elFatura").value), vencimento: $("elVenc").value || null, pagamento: $("elPagto").value || null,
     recebido: num($("elReceb").value), obs: $("elObs").value.trim() };
 }
 function updCalc() {
   const l = formToL();
   if (l.kwh == null || l.tarifa == null) { $("elCalc").textContent = "Preencha kWh e valor do kWh para ver o cálculo."; return; }
   const c = calc(l);
-  $("elCalc").innerHTML = `${nf(l.kwh, 2)} kWh × ${nf(l.tarifa, 6)} = ${brl(c.bruto)}<br>− ${nf(l.descontoPct || 0, 2)}% de desconto (${brl(c.desconto)}) = ${brl(c.liquido)}<br>+ Ilum. pública ${brl(l.cip)}<b class="tot">Valor a cobrar: ${brl(c.cobrar)}</b><span class="eco">Economia do cliente: ${brl(c.desconto)} de desconto${c.bandEcon ? ` + ${brl(c.bandEcon)} da bandeira ${bandNome(l.bandeira).toLowerCase()}` : ""} = <b>${brl(c.economia)}</b></span>`;
+  const gl = c.recebido || c.fatura ? `<span class="eco" style="display:block">Seu ganho: ${brl(c.recebido)} recebido${c.fatura ? ` − ${brl(c.fatura)} pago na fatura` : ""} = <b>${brl(c.ganho)}</b></span>` : "";
+  $("elCalc").innerHTML = `${nf(l.kwh, 2)} kWh × ${nf(l.tarifa, 6)} = ${brl(c.bruto)}<br>− ${nf(l.descontoPct || 0, 2)}% de desconto (${brl(c.desconto)}) = ${brl(c.liquido)}<br>+ Ilum. pública ${brl(l.cip)}<b class="tot">Valor a cobrar: ${brl(c.cobrar)}</b><span class="eco">Economia do cliente: ${brl(c.desconto)} de desconto${c.bandEcon ? ` + ${brl(c.bandEcon)} da bandeira ${bandNome(l.bandeira).toLowerCase()}` : ""} = <b>${brl(c.economia)}</b></span>${gl}`;
 }
-["elKwh", "elTarifa", "elDesc", "elCip", "elReceb", "elBandVal"].forEach(id => $(id).addEventListener("input", updCalc));
+["elKwh", "elTarifa", "elDesc", "elCip", "elReceb", "elFatura", "elBandVal"].forEach(id => $(id).addEventListener("input", updCalc));
 function syncBand() { const b = $("elBand").value; $("elBandVal").disabled = b === "verde"; if (b === "verde") $("elBandVal").value = "0"; else if (!+$("elBandVal").value) $("elBandVal").value = BANDEIRAS[b][1]; }
 $("elBand").addEventListener("change", () => { const b = $("elBand").value; $("elBandVal").value = b === "verde" ? "0" : BANDEIRAS[b][1]; syncBand(); updCalc(); });
 function prevL(cli, mes) { return lancs.filter(l => l.clienteId === cli && l.id !== editL && (!mes || (l.mes || "") < mes)).sort((a, b) => (b.mes || "").localeCompare(a.mes || ""))[0] || null; }
+function hintFat() {
+  const v = num($("elConta").value), el = $("ehFatura");
+  el.innerHTML = v ? `conta da distribuidora: ${brl(v)} <button type="button" data-enuse="elFatura" data-v="${v}">usar</button>` : "";
+}
+$("elConta").addEventListener("input", hintFat);
 function hints() {
+  hintFat();
   const p = prevL($("elCli").value, $("elMes").value);
   const h = (id, campo, txt, val) => { const el = $(id); if (!p || val == null || val === "") { el.textContent = ""; return; } el.innerHTML = `${mesLbl(p.mes)}: ${esc(txt)} <button type="button" data-enuse="${campo}" data-v="${esc(val)}">usar</button>`; };
   h("ehKwh", "elKwh", nf(p && p.kwh, 0) + " kWh", p && p.kwh); h("ehTarifa", "elTarifa", "R$ " + nf(p && p.tarifa, 6), p && p.tarifa); h("ehCip", "elCip", brl(p && p.cip), p && p.cip);
@@ -198,7 +208,7 @@ function openL(l) {
     $("elCli").value = cli; defaultsFor(cli);
   }
   const d = l || {};
-  $("elConta").value = d.contaDistribuidora ?? ""; $("elVenc").value = d.vencimento || ""; $("elPagto").value = d.pagamento || ""; $("elReceb").value = d.recebido ?? ""; $("elObs").value = d.obs || "";
+  $("elConta").value = d.contaDistribuidora ?? ""; $("elVenc").value = d.vencimento || ""; $("elPagto").value = d.pagamento || ""; $("elReceb").value = d.recebido ?? ""; $("elFatura").value = d.faturaPaga ?? ""; $("elObs").value = d.obs || "";
   $("enFormL").hidden = false; hints(); updCalc(); $("enFormL").scrollIntoView({ block: "nearest" }); $("elKwh").focus();
 }
 $("enNovoL").addEventListener("click", () => openL(null));
@@ -380,22 +390,22 @@ async function salvarPDF(build, nome, btn, alvo) {
 const anoSel = () => $("enAno").value || hoje().slice(0, 4);
 const mesesAno = ano => MESES.map((_, i) => ano + "-" + String(i + 1).padStart(2, "0"));
 function resultadoMes(ano) {
-  const by = {}; mesesAno(ano).forEach(m => { by[m] = { re: 0, ec: 0, ga: 0 }; });
-  lancs.forEach(l => { const o = by[l.mes]; if (o) o.re += calc(l).recebido; });
+  const by = {}; mesesAno(ano).forEach(m => { by[m] = { re: 0, fp: 0, ec: 0, ga: 0 }; });
+  lancs.forEach(l => { const o = by[l.mes]; if (o) { const c = calc(l); o.re += c.recebido; o.fp += c.fatura; } });
   ganhos.forEach(g => { const o = by[g.mes]; if (o) o.ec += +g.valor || 0; });
   gastos.forEach(g => { const o = by[g.mes]; if (o) o.ga += +g.valor || 0; });
   return by;
 }
 function totaisAno(ano) {
-  const by = resultadoMes(ano), t = { re: 0, ec: 0, ga: 0 };
-  Object.values(by).forEach(o => { t.re += o.re; t.ec += o.ec; t.ga += o.ga; });
-  t.gan = r2(t.re + t.ec); t.liq = r2(t.gan - t.ga); return t;
+  const by = resultadoMes(ano), t = { re: 0, fp: 0, ec: 0, ga: 0 };
+  Object.values(by).forEach(o => { t.re += o.re; t.fp += o.fp; t.ec += o.ec; t.ga += o.ga; });
+  t.gan = r2(t.re - t.fp + t.ec); t.liq = r2(t.gan - t.ga); return t;
 }
 function renderResultado(ano) {
   const t = totaisAno(ano);
   $("enResSub").textContent = "Ganho menos o que você pagou de faturas em " + ano;
   $("enResKpis").innerHTML =
-    kp("Ganho no ano", brl(t.gan), "recebido " + brl(t.re) + " + economia " + brl(t.ec), "up") +
+    kp("Ganho no ano", brl(t.gan), "recebido " + brl(t.re) + (t.fp > 0.004 ? " − fatura " + brl(t.fp) : "") + " + economia " + brl(t.ec), "up") +
     kp("Gasto com faturas", brl(t.ga), gastos.filter(g => (g.mes || "").slice(0, 4) === ano).length + " fatura(s) lançada(s)", t.ga > 0.004 ? "down" : "") +
     kp("Resultado líquido", brl(t.liq), t.liq >= 0 ? "o que sobra no fim" : "gastou mais do que ganhou", t.liq >= 0 ? "gold" : "down");
 }
@@ -429,16 +439,17 @@ function renderGanhos() {
   const ano = anoSel(), by = resultadoMes(ano), t = totaisAno(ano), meses = mesesAno(ano);
   $("enEKpis").innerHTML = kp("Recebido dos clientes", brl(t.re), "pago pelas faturas de energia solar", "") +
     kp("Economia e outros", brl(t.ec), ganhos.filter(g => (g.mes || "").slice(0, 4) === ano).length + " lançamento(s)", "") +
-    kp("Ganho total", brl(t.gan), "recebido + economia", "up") +
+    kp("Pago nas faturas", brl(t.fp), "informado nos lançamentos", t.fp > 0.004 ? "down" : "") +
+    kp("Ganho total", brl(t.gan), "recebido − fatura paga + economia", "up") +
     kp("Gasto com faturas", brl(t.ga), "veja na aba Gastos", t.ga > 0.004 ? "down" : "") +
     kp("Resultado líquido", brl(t.liq), "ganho − gasto", t.liq >= 0 ? "gold" : "down");
-  $("enEChart").innerHTML = barras(meses, [meses.map(m => r2(by[m].re + by[m].ec)), meses.map(m => r2(by[m].ga))], ["eg", "eq"], ano, ["ganho", "gasto"], "Ganho e gasto com energia por mês em ");
-  const comDado = meses.filter(m => by[m].re || by[m].ec || by[m].ga);
-  $("enTblMM").innerHTML = `<thead><tr><th>Mês</th><th class="n">Recebido</th><th class="n">Economia</th><th class="n">Ganho</th><th class="n">Gasto</th><th class="n">Líquido</th></tr></thead><tbody>` +
-    (comDado.length ? comDado.map(m => { const o = by[m], g = r2(o.re + o.ec), lq = r2(g - o.ga);
-      return `<tr><td><b>${mesLbl(m)}</b></td><td class="n" data-label="Recebido">${brl(o.re)}</td><td class="n" data-label="Economia">${brl(o.ec)}</td><td class="n up" data-label="Ganho">${brl(g)}</td><td class="n${o.ga > 0.004 ? " down" : ""}" data-label="Gasto">${brl(o.ga)}</td><td class="n${lq < 0 ? " down" : ""}" data-label="Líquido"><b>${brl(lq)}</b></td></tr>`; }).join("")
-      : `<tr><td colspan="6" class="empty">Nada lançado em ${esc(ano)}.</td></tr>`) + "</tbody>" +
-    (comDado.length > 1 ? `<tfoot><tr><td>Total</td><td class="n" data-label="Recebido">${brl(t.re)}</td><td class="n" data-label="Economia">${brl(t.ec)}</td><td class="n" data-label="Ganho">${brl(t.gan)}</td><td class="n" data-label="Gasto">${brl(t.ga)}</td><td class="n" data-label="Líquido">${brl(t.liq)}</td></tr></tfoot>` : "");
+  $("enEChart").innerHTML = barras(meses, [meses.map(m => r2(by[m].re - by[m].fp + by[m].ec)), meses.map(m => r2(by[m].ga))], ["eg", "eq"], ano, ["ganho", "gasto"], "Ganho e gasto com energia por mês em ");
+  const comDado = meses.filter(m => by[m].re || by[m].fp || by[m].ec || by[m].ga);
+  $("enTblMM").innerHTML = `<thead><tr><th>Mês</th><th class="n">Recebido</th><th class="n">Fatura paga</th><th class="n">Economia</th><th class="n">Ganho</th><th class="n">Gasto</th><th class="n">Líquido</th></tr></thead><tbody>` +
+    (comDado.length ? comDado.map(m => { const o = by[m], g = r2(o.re - o.fp + o.ec), lq = r2(g - o.ga);
+      return `<tr><td><b>${mesLbl(m)}</b></td><td class="n" data-label="Recebido">${brl(o.re)}</td><td class="n${o.fp > 0.004 ? " down" : ""}" data-label="Fatura paga">${brl(o.fp)}</td><td class="n" data-label="Economia">${brl(o.ec)}</td><td class="n up" data-label="Ganho">${brl(g)}</td><td class="n${o.ga > 0.004 ? " down" : ""}" data-label="Gasto">${brl(o.ga)}</td><td class="n${lq < 0 ? " down" : ""}" data-label="Líquido"><b>${brl(lq)}</b></td></tr>`; }).join("")
+      : `<tr><td colspan="7" class="empty">Nada lançado em ${esc(ano)}.</td></tr>`) + "</tbody>" +
+    (comDado.length > 1 ? `<tfoot><tr><td>Total</td><td class="n" data-label="Recebido">${brl(t.re)}</td><td class="n" data-label="Fatura paga">${brl(t.fp)}</td><td class="n" data-label="Economia">${brl(t.ec)}</td><td class="n" data-label="Ganho">${brl(t.gan)}</td><td class="n" data-label="Gasto">${brl(t.ga)}</td><td class="n" data-label="Líquido">${brl(t.liq)}</td></tr></tfoot>` : "");
   const doAno = ganhos.filter(g => (g.mes || "").slice(0, 4) === ano).sort((a, b) => (b.mes || "").localeCompare(a.mes || ""));
   $("eeDescList").innerHTML = [...new Set(ganhos.map(g => g.descricao).filter(Boolean))].map(d => `<option value="${esc(d)}">`).join("");
   $("enTblE").innerHTML = `<thead><tr><th>Mês</th><th>Tipo</th><th>Descrição</th><th class="n">Valor</th><th></th></tr></thead><tbody>` +
