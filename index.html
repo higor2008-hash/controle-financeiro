@@ -55,6 +55,13 @@ tr.pago .cdesc{text-decoration:line-through}
 .acts{display:inline-flex;gap:6px;justify-content:flex-end}
 dialog#edDlg{border:1px solid var(--line);border-radius:14px;padding:20px;background:var(--surface);color:var(--ink);width:min(560px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
 dialog#crDlg{border:1px solid var(--line);border-radius:14px;padding:20px;background:var(--surface);color:var(--ink);width:min(560px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+dialog#vdDlg{border:1px solid var(--line);border-radius:14px;padding:20px;background:var(--surface);color:var(--ink);width:min(600px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+dialog#vdDlg::backdrop{background:rgba(0,0,0,.45)}
+dialog#vdDlg h2{font-size:18px;font-weight:700}
+.vdlist{margin:12px 0;display:flex;flex-direction:column;gap:8px}
+.vdrow{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--line);border-radius:10px}
+.vdrow>div{min-width:0;flex:1 1 180px;overflow-wrap:anywhere}.vdrow .sub2{display:block}
+@media (max-width:640px){dialog#vdDlg{width:100vw;max-width:100vw;margin:auto 0 0;border-radius:16px 16px 0 0;max-height:92dvh;padding-bottom:calc(20px + env(safe-area-inset-bottom,0px))}#vdDlg .edbtns .btn{flex:1}}
 dialog#crDlg::backdrop{background:rgba(0,0,0,.45)}
 dialog#crDlg h2{font-size:18px;font-weight:700}
 .crprev{margin:12px 0}.crprev img{display:block;max-width:100%;max-height:60dvh;margin:0 auto;border-radius:8px;border:1px solid var(--line)}
@@ -1016,7 +1023,7 @@ html,body{margin:0;background:var(--bg)}
     </div>
     <div class="card">
       <h2>Veículos</h2>
-      <p class="sub">Cadastre placa e RENAVAM. Toque em Editar para corrigir.</p>
+      <p class="sub">Cadastre placa e RENAVAM. Em <b>📎 Documentos</b> você guarda PDFs ou fotos de cada veículo.</p>
       <form class="f" id="fVeic">
         <label class="fld wide">Veículo<input id="veNome" required autocomplete="off" placeholder="Strada"></label>
         <label class="fld">Placa<input id="vePlaca" required autocomplete="off" placeholder="ABC1D23" maxlength="8" style="text-transform:uppercase"></label>
@@ -1283,6 +1290,14 @@ html,body{margin:0;background:var(--bg)}
   <div id="crPrev" class="crprev"></div>
   <div class="edbtns"><a class="btn ghost" id="crAbrir" target="_blank" rel="noopener noreferrer">Abrir</a><a class="btn" id="crBaixar" rel="noopener noreferrer">Baixar</a></div>
   <div class="edbtns" style="margin-top:8px"><button class="btn danger" type="button" id="crRem">Remover arquivo</button><button class="btn ghost" type="button" id="crTrocar">Trocar arquivo</button><button class="btn ghost" type="button" id="crFechar">Fechar</button></div>
+</dialog>
+<dialog id="vdDlg" aria-labelledby="vdTit">
+  <h2 id="vdTit">Documentos</h2>
+  <p class="sub" id="vdSub"></p>
+  <div id="vdList" class="vdlist"></div>
+  <div class="msg" id="vdMsg"></div>
+  <input type="file" id="vdIn" accept="application/pdf,.pdf,image/jpeg,image/png,image/webp,image/heic" hidden>
+  <div class="edbtns"><button class="btn ghost" type="button" id="vdFechar">Fechar</button><button class="btn" type="button" id="vdAdd">+ Adicionar PDF ou foto</button></div>
 </dialog>
 <datalist id="ativosList"></datalist>
 <datalist id="fontesList"></datalist>
