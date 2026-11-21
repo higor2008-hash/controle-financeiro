@@ -607,7 +607,8 @@ document.addEventListener('click',async e=>{
   const dl=e.target.closest('[data-del]'); if(dl){
     if(dl.dataset.armed!=='1'){dl.dataset.armed='1';dl.textContent='Confirmar?';setTimeout(()=>{if(dl.isConnected){dl.dataset.armed='';dl.textContent='Excluir';}},3000);return;}
     const crA=dl.dataset.del==='licenc'&&((S.licenc||[]).find(x=>x.id===dl.dataset.id)||{}).crlv;
-    try{await store.del(dl.dataset.del,dl.dataset.id); if(crA&&crA.arq&&window.cfArquivos) window.cfArquivos.apagar(crA.arq).catch(()=>{});}catch(err){dl.textContent='Erro';}
+    const vdA=dl.dataset.del==='veiculos'?(((S.veiculos||[]).find(x=>x.id===dl.dataset.id)||{}).docs||[]):[];
+    try{await store.del(dl.dataset.del,dl.dataset.id); if(window.cfArquivos){ if(crA&&crA.arq) window.cfArquivos.apagar(crA.arq).catch(()=>{}); vdA.forEach(d=>d&&d.arq&&window.cfArquivos.apagar(d.arq).catch(()=>{})); }}catch(err){dl.textContent='Erro';}
     return;}
   const bk=e.target.closest('[data-banco]'); if(bk){posBanco=bk.dataset.banco; render(); return;}
   const c=e.target.closest('[data-c]'); if(c){posCls=c.dataset.c; document.querySelectorAll('#clsSeg button').forEach(b=>b.setAttribute('aria-pressed',b===c)); render(); return;}
@@ -1442,7 +1443,7 @@ function renderVeic(){
     :`<tbody><tr><td class="empty">Nenhum pagamento lançado em ${vcAno}.</td></tr></tbody>`;
   const anos=[...new Set(LS.map(l=>+l.ano))].sort(); const rows=anos.map(a=>({a,v:LS.filter(l=>+l.ano===a).reduce((t,l)=>t+(+l.valor||0),0)})); const mx=Math.max(...rows.map(r=>r.v),1);
   $('#vcBars').innerHTML=rows.length?rows.map(r=>`<div class="bar" style="grid-template-columns:minmax(0,60px) minmax(0,1fr) auto;cursor:pointer" data-vcano="${r.a}" title="Abrir ${r.a}"><span>${r.a}</span><div class="track"><div class="fill" style="width:${(r.v/mx*100).toFixed(1)}%"></div></div><span class="num" style="text-align:right;white-space:nowrap">${R(r.v)}</span></div>`).join(''):'<p class="empty">Nenhum pagamento lançado.</p>';
-  $('#tblVeic').innerHTML=VS.length?`<thead><tr><th>Veículo</th><th>Placa</th><th>RENAVAM</th><th></th></tr></thead><tbody>${VS.map(v=>`<tr><td><b>${esc(v.nome)}</b>${v.obs?' <span class="sub2">'+esc(v.obs)+'</span>':''}</td><td>${esc(v.placa)}</td><td>${esc(v.renavam||'—')}</td><td style="width:1%"><span class="acts">${(c=>c?`<button class="btn ghost small" type="button" data-crlv="${esc(c.id)}" title="Ver ou baixar o CRLV mais recente">📄 CRLV ${esc(c.ano)}</button>`:'')(crlvUlt(v.placa))}<a class="btn ghost small" href="https://www.detran.go.gov.br/" target="_blank" rel="noopener noreferrer" data-detran="${esc(v.placa)}|${esc(v.renavam||'')}" title="Abre o site do Detran-GO e copia placa e RENAVAM">Consultar no Detran</a><button class="btn ghost small" data-ed="veiculos" data-id="${esc(v.id)}">Editar</button><button class="btn danger small" data-del="veiculos" data-id="${esc(v.id)}">Excluir</button></span></td></tr>`).join('')}</tbody>`
+  $('#tblVeic').innerHTML=VS.length?`<thead><tr><th>Veículo</th><th>Placa</th><th>RENAVAM</th><th></th></tr></thead><tbody>${VS.map(v=>`<tr><td><b>${esc(v.nome)}</b>${v.obs?' <span class="sub2">'+esc(v.obs)+'</span>':''}</td><td>${esc(v.placa)}</td><td>${esc(v.renavam||'—')}</td><td style="width:1%"><span class="acts">${(n=>`<button class="btn ghost small" type="button" data-vdocs="${esc(v.id)}" title="Guardar e ver documentos deste veículo (PDF ou foto)">📎 Documentos${n?' ('+n+')':''}</button>`)(((v.docs||[]).length)+(S.licenc||[]).filter(l=>l.placa===v.placa&&l.crlv).length)}${(c=>c?`<button class="btn ghost small" type="button" data-crlv="${esc(c.id)}" title="Ver ou baixar o CRLV mais recente">📄 CRLV ${esc(c.ano)}</button>`:'')(crlvUlt(v.placa))}<a class="btn ghost small" href="https://www.detran.go.gov.br/" target="_blank" rel="noopener noreferrer" data-detran="${esc(v.placa)}|${esc(v.renavam||'')}" title="Abre o site do Detran-GO e copia placa e RENAVAM">Consultar no Detran</a><button class="btn ghost small" data-ed="veiculos" data-id="${esc(v.id)}">Editar</button><button class="btn danger small" data-del="veiculos" data-id="${esc(v.id)}">Excluir</button></span></td></tr>`).join('')}</tbody>`
     :`<tbody><tr><td class="empty">Nenhum veículo cadastrado.</td></tr></tbody>`;
   const sel=$('#lcVeic'), cur=sel.value; sel.innerHTML=VS.map(v=>`<option value="${esc(v.placa)}">${esc(v.nome)} · ${esc(v.placa)}</option>`).join(''); if(cur) sel.value=cur;
   if(!$('#lcAno').value) $('#lcAno').value=vcAno;
@@ -1520,6 +1521,54 @@ $('#crRem').addEventListener('click',async()=>{ const b=$('#crRem'), id=$('#crDl
   const l=(S.licenc||[]).find(x=>x.id===id); if(!l||!l.crlv) return crlvFechar(); const {id:_i,crlv,...d}=l;
   try{ await store.put('licenc',id,d); window.cfArquivos.apagar(crlv.arq).catch(()=>{}); crlvFechar(); flash($('#mCrlv'),`CRLV de ${veicNome(l.placa)} ${l.ano} removido.`,true); }
   catch(err){ b.dataset.armed=''; b.textContent='Remover arquivo'; flash($('#mCrlv'),errTxt(err)); }
+});
+
+/* Documentos de cada veículo (PDF ou foto): lista em veiculos.docs [{arq,nome,tipo,tam,em}], arquivos no mesmo bucket privado. */
+let vdPlaca=null;
+async function vdAbrir(id){
+  const v=(S.veiculos||[]).find(x=>x.id===id); if(!v) return; vdPlaca=id; const dl=$('#vdDlg');
+  $('#vdTit').textContent='Documentos · '+v.nome; $('#vdSub').textContent='Placa '+v.placa+'. Guarde PDFs ou fotos (até 10 MB cada): documento, nota, seguro, multa…';
+  const D=(v.docs||[]).map((d,i)=>({...d,i})), C=(S.licenc||[]).filter(l=>l.placa===v.placa&&l.crlv).sort((a,b)=>(+b.ano)-(+a.ano));
+  const linha=(nome,info,k,extra)=>`<div class="vdrow"><div><b>${esc(nome)}</b><span class="sub2">${esc(info)}</span></div><span class="acts"><a class="btn ghost small" target="_blank" rel="noopener noreferrer" data-vdlink="${k}">Abrir</a><a class="btn small" rel="noopener noreferrer" data-vdbaixa="${k}">Baixar</a>${extra||''}</span></div>`;
+  $('#vdList').innerHTML=(D.length||C.length)?D.map(d=>linha(d.nome||'arquivo',[d.tam?crlvTam(d.tam):'',d.em?'anexado em '+fmtD(d.em):''].filter(Boolean).join(' · '),'d'+d.i,`<button class="btn danger small" type="button" data-vdrem="${d.i}">Remover</button>`)).join('')+C.map(l=>linha('CRLV '+l.ano,'do licenciamento'+(l.crlv.em?' · anexado em '+fmtD(l.crlv.em):''),'c'+l.id)).join('')
+    :'<p class="empty">Nenhum documento guardado ainda.</p>';
+  if(!dl.open){ if(dl.showModal) dl.showModal(); else dl.setAttribute('open',''); }
+  if(!window.cfArquivos) return;
+  const alvo=k=>k[0]==='d'?(v.docs||[])[+k.slice(1)]:((S.licenc||[]).find(l=>l.id===k.slice(1))||{}).crlv;
+  for(const a of $('#vdList').querySelectorAll('[data-vdlink]')){ const k=a.dataset.vdlink, d=alvo(k); if(!d) continue; const ext=d.arq.split('.').pop();
+    const nomeB=k[0]==='c'?`CRLV ${v.placa} ${k.split('-').pop()}.${ext}`:(/\.[a-z0-9]{2,4}$/i.test(d.nome||'')?d.nome:`${d.nome||v.placa}.${ext}`);
+    Promise.all([window.cfArquivos.link(d.arq),window.cfArquivos.link(d.arq,nomeB)]).then(([u,ub])=>{ if(vdPlaca!==id) return; a.href=u; const b=$('#vdList').querySelector(`[data-vdbaixa="${k}"]`); if(b) b.href=ub; }).catch(()=>{}); }
+}
+function vdFechar(){ const dl=$('#vdDlg'); vdPlaca=null; if(dl.close) dl.close(); else dl.removeAttribute('open'); }
+document.addEventListener('click',async e=>{
+  const o=e.target.closest('[data-vdocs]'); if(o){ if(!window.cfArquivos){flash($('#mVeic'),'Documentos só funcionam no site com login.');return;} vdAbrir(o.dataset.vdocs); return; }
+  const r=e.target.closest('[data-vdrem]'); if(r){
+    if(r.dataset.armed!=='1'){r.dataset.armed='1';r.textContent='Confirmar?';setTimeout(()=>{if(r.isConnected){r.dataset.armed='';r.textContent='Remover';}},3000);return;}
+    const v=(S.veiculos||[]).find(x=>x.id===vdPlaca); if(!v) return; const i=+r.dataset.vdrem, d=(v.docs||[])[i]; if(!d) return;
+    const {id,...vd}=v; const docs=(v.docs||[]).filter((_,j)=>j!==i);
+    try{ await store.put('veiculos',id,{...vd,docs}); window.cfArquivos.apagar(d.arq).catch(()=>{}); flash($('#vdMsg'),'Documento removido.',true); vdAbrir(id); }
+    catch(err){ flash($('#vdMsg'),errTxt(err)); }
+  }
+});
+$('#vdFechar').addEventListener('click',vdFechar);
+$('#vdDlg').addEventListener('click',e=>{if(e.target===$('#vdDlg')) vdFechar();});
+$('#vdAdd').addEventListener('click',()=>{ const i=$('#vdIn'); i.value=''; i.click(); });
+$('#vdIn').addEventListener('change',async e=>{
+  const f=e.target.files&&e.target.files[0], id=vdPlaca, m=$('#vdMsg'); if(!f||!id) return;
+  const v=(S.veiculos||[]).find(x=>x.id===id); if(!v) return;
+  if((v.docs||[]).length>=50){flash(m,'Limite de 50 documentos por veículo. Remova algum antes.');return;}
+  const pdf=f.type==='application/pdf'||/\.pdf$/i.test(f.name), img=/^image\/(jpeg|png|webp|heic|heif)$/.test(f.type);
+  if(!pdf&&!img){flash(m,'Escolha um PDF ou uma foto (JPG, PNG).');return;}
+  if(f.size>10*1024*1024){flash(m,'O arquivo passa de 10 MB. Escolha um menor.');return;}
+  const tipo=pdf?'application/pdf':f.type, ext=pdf?'pdf':(f.type.split('/')[1]||'jpg').replace('jpeg','jpg');
+  const arq=`veiculos/${v.placa}/${Date.now().toString(36)}.${ext}`, nome=(f.name||`Documento ${v.placa}.${ext}`).slice(0,120);
+  const b=$('#vdAdd'); b.disabled=true; flash(m,'Enviando…',true);
+  try{ await window.cfArquivos.enviar(arq,new File([f],nome,{type:tipo})); }
+  catch(err){ b.disabled=false; flash(m,'Não foi possível enviar o arquivo. Tente de novo.'); return; }
+  const {id:_i,...vd}=v;
+  try{ await store.put('veiculos',id,{...vd,docs:[...(v.docs||[]),{arq,nome,tipo,tam:f.size,em:today()}]}); flash(m,`${nome} guardado.`,true); if(vdPlaca===id) vdAbrir(id); }
+  catch(err){ window.cfArquivos.apagar(arq).catch(()=>{}); flash(m,errTxt(err)); }
+  finally{ b.disabled=false; }
 });
 
 /* Consultar no Detran-GO: abre o site oficial e copia placa e RENAVAM para colar (o Detran pede captcha, então não dá para consultar sozinho). */
