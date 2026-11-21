@@ -110,6 +110,8 @@ body.priv .v,body.priv .num,body.priv td.n,body.priv .kpi .s,body.priv .ckpi .s,
 .ck4{grid-template-columns:repeat(5,minmax(0,1fr))}
 @media (max-width:1000px) and (min-width:721px){.ck4{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media (max-width:720px){.ck4{grid-template-columns:repeat(2,minmax(0,1fr))}.ck4 .v{font-size:17px}.ck4 .ckpi:last-child{grid-column:1/-1}}
+#enEKpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media (max-width:720px){#enEKpis{grid-template-columns:repeat(2,minmax(0,1fr))}#enEKpis .ckpi:last-child{grid-column:auto}}
 .dias{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
 .dias button{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:6px 2px;color:var(--ink-3);font:inherit;font-size:11px;cursor:pointer;line-height:1.25;min-width:0}
 .dias button b{display:block;font-family:var(--f-mono);font-size:14px;color:var(--ink);font-weight:600}
@@ -1105,6 +1107,7 @@ html,body{margin:0;background:var(--bg)}
           <label class="fld">Valor da bandeira (R$/kWh)<input type="number" step="0.00001" min="0" id="elBandVal" inputmode="decimal"></label>
           <label class="fld">Ilum. pública (R$)<input type="number" step="0.01" min="0" id="elCip" inputmode="decimal"><span class="enhint" id="ehCip"></span></label>
           <label class="fld">Conta da distribuidora (R$)<input type="number" step="0.01" min="0" id="elConta" inputmode="decimal"></label>
+          <label class="fld">Valor pago na fatura (R$)<input type="number" step="0.01" min="0" id="elFatura" inputmode="decimal"><span class="enhint" id="ehFatura"></span></label>
           <label class="fld">Vencimento da cobrança<input type="date" id="elVenc"></label>
           <label class="fld">Data do pagamento<input type="date" id="elPagto"></label>
           <label class="fld">Valor recebido (R$)<input type="number" step="0.01" min="0" id="elReceb" inputmode="decimal"></label>
@@ -1158,7 +1161,7 @@ html,body{margin:0;background:var(--bg)}
     <div id="enGas" class="panel" hidden>
       <div class="card">
         <div class="headrow">
-          <div><h2>Gastos com energia</h2><p class="sub">Faturas de energia que você paga. Esse valor é descontado do seu ganho.</p></div>
+          <div><h2>Gastos com energia</h2><p class="sub">Outras faturas de energia que você paga. Se já pôs o valor em “Valor pago na fatura” no lançamento, não lance de novo aqui.</p></div>
           <div class="enlinks"><select id="enGAno" aria-label="Ano" style="width:auto"></select><button class="btn" type="button" id="enNovoG">+ Nova fatura</button></div>
         </div>
         <div class="ckpis" id="enGKpis"></div>
@@ -1182,7 +1185,7 @@ html,body{margin:0;background:var(--bg)}
     <div id="enGan" class="panel" hidden>
       <div class="card">
         <div class="headrow">
-          <div><h2>Ganhos e economia</h2><p class="sub">O que os clientes pagaram mais o que você economizou, menos as faturas que você pagou</p></div>
+          <div><h2>Ganhos e economia</h2><p class="sub">O que os clientes pagaram, menos o valor pago na fatura de cada lançamento, mais o que você economizou</p></div>
           <div class="enlinks"><select id="enEAno" aria-label="Ano" style="width:auto"></select><button class="btn" type="button" id="enNovoE">+ Lançar economia</button></div>
         </div>
         <div class="ckpis ck4" id="enEKpis"></div>
