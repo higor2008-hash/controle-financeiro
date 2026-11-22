@@ -617,7 +617,7 @@ document.addEventListener('click',async e=>{
 $('#anoSel').addEventListener('change',render);
 
 /* ---------- Cartões de crédito ---------- */
-const CATS=['Mercado','Restaurante e delivery','Transporte','Combustível','Casa','Contas e assinaturas','Saúde','Educação','Lazer','Compras','Viagem','Outros'];
+const CATS=['Mercado','Restaurante e delivery','Transporte','Combustível','Casa','Contas e assinaturas','Saúde','Bebê','Educação','Lazer','Compras','Viagem','Outros'];
 const MESES_L=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 const ymAdd=(ym,n)=>{let [y,m]=ym.split('-').map(Number); m+=n; y+=Math.floor((m-1)/12); m=((m-1)%12+12)%12+1; return y+'-'+String(m).padStart(2,'0');};
 let fatYM=today().slice(0,7), cartSel='todos', fatAll=false;
@@ -639,6 +639,28 @@ function parcelas(){
     for(let i=0;i<n;i++) out.push({g,c,i:i+1,n,ym:ymAdd(f1,i),v:(base+(i<resto?1:0))/100});
   }
   return out;
+}
+/* ---------- Gastos com bebê (categoria "Bebê" nos cartões e em Contas a pagar) ---------- */
+function renderBebe(P){
+  const el=$('#bebeBox'); if(!el) return;
+  const eB=c=>(c||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()==='bebe';
+  const comp=S.gastos.filter(g=>eB(g.categoria)&&S.cartoes.some(c=>c.id===g.cartao)).sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+  const ct=(S.contas||[]).filter(c=>eB(c.categoria));
+  const totC=comp.reduce((s,g)=>s+(+g.valor||0),0)+ct.reduce((s,c)=>s+(+c.valor||0),0);
+  const pb=P.filter(x=>eB(x.g.categoria));
+  const noMes=pb.filter(x=>x.ym===fatYM).reduce((s,x)=>s+x.v,0)+ct.filter(c=>c.mes===fatYM).reduce((s,c)=>s+(+c.valor||0),0);
+  const ano=fatYM.slice(0,4), noAno=pb.filter(x=>x.ym.slice(0,4)===ano).reduce((s,x)=>s+x.v,0)+ct.filter(c=>(c.mes||'').slice(0,4)===ano).reduce((s,c)=>s+(+c.valor||0),0);
+  const ymH=today().slice(0,7), aVencer=pb.filter(x=>x.ym>ymH).reduce((s,x)=>s+x.v,0);
+  const [fy,fm]=fatYM.split('-').map(Number);
+  const cn=id=>(S.cartoes.find(c=>c.id===id)||{}).nome||id;
+  const rows=[...comp.map(g=>({d:g.data,t:g.descricao,o:cn(g.cartao),p:(+g.parcelas||1)>1?(+g.parcelas)+'x':'à vista',v:+g.valor||0})),
+              ...ct.map(c=>({d:(c.mes||'')+'-01',t:c.descricao,o:'Contas a pagar',p:c.parcela||'',v:+c.valor||0,m:1}))].sort((a,b)=>(b.d||'').localeCompare(a.d||''));
+  el.innerHTML=`<div class="ckpis">
+      <div class="ckpi"><div class="l">Total gasto com bebê</div><div class="v">${R(totC)}</div><div class="s">${rows.length} compra${rows.length===1?'':'s'} lançada${rows.length===1?'':'s'}</div></div>
+      <div class="ckpi"><div class="l">Na fatura de ${MESES_L[fm-1]}</div><div class="v">${R(noMes)}</div><div class="s">em ${ano}: ${R(noAno)}</div></div>
+      <div class="ckpi"><div class="l">Parcelas a vencer</div><div class="v">${R(aVencer)}</div><div class="s">nas próximas faturas</div></div>
+    </div>
+    <div class="tbl" style="margin-top:12px"><table><thead><tr><th>Data</th><th>Descrição</th><th>Onde</th><th class="n">Pagamento</th><th class="n">Valor</th></tr></thead><tbody>${rows.length?rows.map(r=>`<tr><td class="num">${r.m?ymNome(r.d.slice(0,7)):fmtD(r.d)}</td><td style="white-space:normal;min-width:10em">${esc(r.t||'')}</td><td>${esc(r.o)}</td><td class="n">${esc(r.p)}</td><td class="n">${R(r.v)}</td></tr>`).join(''):'<tr><td colspan="5" class="empty">Nenhum gasto com bebê ainda. Ao lançar um gasto, escolha a categoria Bebê.</td></tr>'}</tbody></table></div>`;
 }
 function venceEm(c,ym){const [y,m]=ym.split('-').map(Number); const last=new Date(y,m,0).getDate(); return String(Math.min(+c.venc||10,last)).padStart(2,'0')+'/'+String(m).padStart(2,'0');}
 function renderCartoes(){
@@ -663,6 +685,7 @@ function renderCartoes(){
   const porCat={}; doMes.forEach(x=>{const k=x.g.categoria||'Outros'; porCat[k]=(porCat[k]||0)+x.v;});
   const cats=Object.entries(porCat).sort((a,b)=>b[1]-a[1]);
   $('#catBars').innerHTML=cats.length?donut(cats.map(([k,v])=>({l:k,v})),R(tot).replace(/,\d\d$/,''),'na fatura')+cats.map(([k,v],i)=>`<div class="bar" style="grid-template-columns:minmax(0,150px) minmax(0,1fr) auto"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(k)}</span><div class="track"><div class="fill" style="background:${PAL[i%PAL.length]};width:${(v/tot*100).toFixed(1)}%"></div></div><span class="num" style="text-align:right;white-space:nowrap">${R(v)} <span class="sub2">${PCT(v/tot)}</span></span></div>`).join(''):'<p class="empty">Sem gastos nesta fatura.</p>';
+  renderBebe(P);
   const meses=[...Array(6)].map((_,i)=>ymAdd(fatYM,i+1));
   const rows=meses.map(ym=>({ym,v:P.filter(x=>x.ym===ym&&sel(x)).reduce((s,x)=>s+x.v,0)})).filter(r=>r.v>0);
   $('#tblProx').innerHTML=rows.length?`<thead><tr><th>Fatura</th><th class="n">Parcelas</th></tr></thead><tbody>${rows.map(r=>`<tr><td style="text-transform:capitalize">${MESES_L[+r.ym.slice(5)-1]} ${r.ym.slice(0,4)}</td><td class="n">${R(r.v)}</td></tr>`).join('')}</tbody>`:'<tbody><tr><td class="empty">Nenhuma parcela futura.</td></tr></tbody>';
@@ -730,7 +753,7 @@ $('#fGasto').addEventListener('submit',async e=>{
 });
 
 /* ---------- Contas a pagar ---------- */
-const CCATS=['Cartão','Casa','Assinaturas','Transporte','Parcelamentos','Saúde','Educação','Impostos','Extras','Outros'];
+const CCATS=['Cartão','Casa','Assinaturas','Transporte','Parcelamentos','Saúde','Bebê','Educação','Impostos','Extras','Outros'];
 let ctYM=today().slice(0,7);
 const ymNome=ym=>MESES_L[+ym.slice(5)-1]+' '+ym.slice(0,4);
 // faturas da aba Cartões que ainda não estão lançadas como conta no mês
